@@ -1,0 +1,17 @@
+services:
+  ac-database:
+    volumes:
+    - type: bind
+      source: ${DOCKER_VOL_DB:-ac-database}
+      target: /var/lib/mysql
+    environment:
+      TZ: ${TZ}
+
+  ac-worldserver:
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - ./modules:/azerothcore/modules:rw
+  ac-client-data-init:
+    networks:
+      - ac-network
