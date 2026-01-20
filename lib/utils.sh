@@ -78,104 +78,118 @@ gitPullMirrorUrl() {
 #   目录名称 (可选): 克隆到的目录名称，如果不指定则从 git_url 提取
 gitClone() {
     local git_url=$(gitPullMirrorUrl "$1")
-    local git_name=$(basename -s .git $1)
+    local git_name=$(basename -s .git "$1")
     local branch_name="$2"
     local dir_name="$3"
     
-    # 检查是否提供了 git_url
+    # 参数验证
     if [ -z "$git_url" ]; then
-        echo "错误: 请提供 git 地址"
-        echo "用法: gitClone <git_url> [分支名称] [目录名称]"
+        echo "错误: 请提供 git 地址" >&2
+        echo "用法: gitClone <git_url> [分支名称] [目录名称]" >&2
         return 1
     fi
     
-    # 参数处理逻辑
-    # 如果只提供了两个参数，第二个参数可能是分支名或目录名
+    # 智能参数处理
     if [ -n "$branch_name" ] && [ -z "$dir_name" ]; then
-        # 检查第二个参数是否包含斜杠（可能是分支名）
         if [[ "$branch_name" == *"/"* ]]; then
-            # 包含斜杠，可能是分支名
             dir_name=""
         else
-            # 不包含斜杠，可能是目录名
             dir_name="$branch_name"
             branch_name=""
         fi
     fi
     
-    # 如果没有提供目录名称，从 git_url 提取
+    # 自动提取目录名
     if [ -z "$dir_name" ]; then
-        # 从 git_url 提取仓库名称 (去掉 .git 后缀)
         dir_name=$(basename "$git_url" .git)
     fi
     
-    echo "处理仓库: $git_url"
-    if [ -n "$branch_name" ]; then
-        echo "分支: $branch_name"
-    fi
-
+    # 配置安全目录（避免所有权问题）
+    git config --global --add safe.directory "*" >/dev/null 2>&1
+    
     # 检查目录是否存在
     if [ ! -d "$dir_name" ]; then
-        echo "目录${dir_name}不存在，开始克隆..."
+        # 克隆仓库
+        echo "正在克隆: $git_name"
+        local clone_args="--depth 1"
+        [ -n "$branch_name" ] && clone_args="$clone_args --branch $branch_name"
         
-        # 构建克隆命令
-        local clone_cmd="git clone --depth 1"
-        if [ -n "$branch_name" ]; then
-            clone_cmd="$clone_cmd --branch $branch_name"
-        fi
-        clone_cmd="$clone_cmd \"$git_url\" \"$dir_name\""
+        local clone_output
+        clone_output=$(git clone $clone_args "$git_url" "$dir_name" 2>&1)
+        local exit_code=$?
         
-        echo "执行: $clone_cmd"
-        eval $clone_cmd
-        
-        if [ $? -eq 0 ]; then
-            echo "${git_name}克隆成功!"
+        if [ $exit_code -eq 0 ]; then
+            echo "[OK] $git_name 克隆完成"
             return 0
         else
-            echo "${git_name}克隆失败!"
+            echo "[ERROR] $git_name 克隆失败" >&2
+            echo "错误原因: $clone_output" >&2
+            echo "提示: 请检查网络连接或仓库地址" >&2
             return 1
         fi
     else
-        echo "目录${git_name}已存在，开始还原和更新..."
+        # 更新现有仓库
+        echo "正在更新: $git_name"
         
         # 进入目录
-        cd "$dir_name" || return 1
-        
-        # 如果指定了分支，先切换到该分支
-        if [ -n "$branch_name" ]; then
-            echo "切换到分支: $branch_name"
-            git checkout "$branch_name"
-            if [ $? -ne 0 ]; then
-                echo "切换分支失败!"
-                cd ..
-                return 1
-            fi
+        if ! cd "$dir_name"; then
+            echo "[ERROR] 无法进入目录: $dir_name" >&2
+            return 1
         fi
         
-        # 还原所有修改
-        echo "还原修改..."
-        git reset --hard
+        # 为当前目录配置安全目录
+        local abs_path
+        abs_path=$(pwd)
+        git config --global --add safe.directory "$abs_path" >/dev/null 2>&1
+        
+        local error_msg=""
+        
+        # 强制还原所有修改（在切换分支前）
+        local reset_output
+        reset_output=$(git reset --hard 2>&1)
         if [ $? -ne 0 ]; then
-            echo "还原失败!"
-            cd ..
-            return 1
+            error_msg="强制还原失败: $reset_output"
         fi
         
         # 清理未跟踪的文件
-        echo "清理未跟踪文件..."
-        git clean -fd
-        
-        # 更新仓库
-        echo "更新${git_name}仓库..."
-        git pull
-        if [ $? -eq 0 ]; then
-            echo "更新${git_name}成功!"
-            cd ..
-            return 0
-        else
-            echo "更新${git_name}失败!"
-            cd ..
-            return 1
+        if [ -z "$error_msg" ]; then
+            git clean -fd >/dev/null 2>&1
         fi
+        
+        # 切换分支（如果指定）
+        if [ -z "$error_msg" ] && [ -n "$branch_name" ]; then
+            local checkout_output
+            checkout_output=$(git checkout "$branch_name" 2>&1)
+            if [ $? -ne 0 ]; then
+                error_msg="分支切换失败: $checkout_output"
+            fi
+        fi
+        
+        # 再次强制还原（切换分支后可能有状态变化）
+        if [ -z "$error_msg" ]; then
+            reset_output=$(git reset --hard 2>&1)
+            if [ $? -ne 0 ]; then
+                error_msg="二次还原失败: $reset_output"
+            fi
+        fi
+        
+        # 更新
+        if [ -z "$error_msg" ]; then
+            local pull_output
+            pull_output=$(git pull 2>&1)
+            if [ $? -eq 0 ]; then
+                echo "[OK] $git_name 更新完成"
+                cd .. >/dev/null 2>&1
+                return 0
+            else
+                error_msg="更新失败: $pull_output"
+            fi
+        fi
+        
+        # 处理错误
+        echo "[ERROR] $git_name 更新失败" >&2
+        echo "错误原因: $error_msg" >&2
+        cd .. >/dev/null 2>&1
+        return 1
     fi
 }

@@ -1,5 +1,4 @@
 #!/bin/bash
-readonly SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")" 2>/dev/null || dirname "${BASH_SOURCE[0]}")
 
 # 源码目录
 readonly SRC_DIR="$SCRIPT_DIR/src"

@@ -1,29 +1,57 @@
 #!/bin/bash
 
 function init_client {
-    
-    readonly VERSION="$CLIENT_DATA_VERSION"
-    # first check if it's defined in env, otherwise use the default
-    readonly path="${WOTLK_CLIENT_DATA_DIR}"
-    readonly zipPath="${SRC_ACORE_CLIENT_DIR}/data.${VERSION}.zip"
-    readonly dataVersionFile="${path}/data-version"
+    local readonly VERSION="$CLIENT_DATA_VERSION"
+    local readonly path="${WOTLK_CLIENT_DATA_DIR}"
+    local readonly zipPath="${SRC_ACORE_CLIENT_DIR}/data.${VERSION}.zip"
+    local readonly dataVersionFile="${path}/data-version"
 
-    [ -f "$dataVersionFile" ] && source "$dataVersionFile"
+    # 加载已安装的版本信息
+    if [ -f "$dataVersionFile" ]; then
+        source "$dataVersionFile"
+    fi
 
-    mkdir -p "$path"
+    # 创建必要的目录
+    mkdir -p "$path" "$SRC_ACORE_CLIENT_DIR"
 
+    # 检查是否已安装相同版本
     if [ "$VERSION" == "$INSTALLED_VERSION" ]; then
         echo "客户端数据 $VERSION 已存在: $dataVersionFile"
-        return
+        return 0
     fi
 
-    if [ ! -f "${zipPath}" ];then
-        echo "未找到 data.${VERSION}.zip 开始下载: $zipPath ..."
-        curl -L "${GITHUB_RELEASES_MIRROR}${CLIENT_DATA_DOWNLOAD_URL}" > "$zipPath"
+    # 下载数据包（如果不存在）
+    if [ ! -f "$zipPath" ]; then
+        echo "未找到 data.${VERSION}.zip，开始下载..."
+        echo "源: ${GITHUB_RELEASES_MIRROR}${CLIENT_DATA_DOWNLOAD_URL}"
+        echo "目标: $zipPath"
+        
+        if ! curl -L --fail --progress-bar "${GITHUB_RELEASES_MIRROR}${CLIENT_DATA_DOWNLOAD_URL}" -o "$zipPath"; then
+            echo "错误: 下载失败"
+            [ -f "$zipPath" ] && rm -f "$zipPath"
+            return 1
+        fi
     fi
 
-    echo "解压 $path..."
-    rm -rf "$path/*"
-    unzip -q -o "$zipPath" -d "$path/"
+    # 验证数据包完整性
+    if ! unzip -t "$zipPath" > /dev/null 2>&1; then
+        echo "错误: 数据包损坏或不完整"
+        [ -f "$zipPath" ] && rm -f "$zipPath"
+        return 1
+    fi
+
+    # 清理旧数据
+    echo "清理旧数据: $path"
+    rm -rf "$path"/*
+
+    # 解压数据包
+    echo "解压数据包到: $path"
+    if ! unzip -q -o "$zipPath" -d "$path/"; then
+        echo "错误: 解压失败"
+        return 1
+    fi
+
+    # 写入版本信息（仅在成功时）
     echo "INSTALLED_VERSION=$VERSION" > "$dataVersionFile"
+    echo "客户端数据 $VERSION 安装完成"
 }

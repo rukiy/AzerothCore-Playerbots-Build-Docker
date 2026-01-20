@@ -1,11 +1,17 @@
 #!/bin/bash
 
-REALMLIST_ADDRESS=1.1.1.1
-UBUNTU_MIRROR="mirrors.aliyun.com"
-# GITHUB_MIRROR=
-# GITHUB_MIRROR="https://githubfast.com/"
-GITHUB_GIT_MIRROR="https://kkgithub.com/"
-GITHUB_RELEASES_MIRROR="https://ghpxy.hwinzniej.top/"
+REALMLIST_ADDRESS=
+
+# UBUNTU_MIRROR="mirrors.aliyun.com"
+UBUNTU_MIRROR="mirrors.ustc.edu.cn"
+
+# GITHUB_GIT_MIRROR=
+# GITHUB_GIT_MIRROR="https://githubfast.com/"
+# GITHUB_GIT_MIRROR="https://kkgithub.com/"
+
+# GITHUB_RELEASES_MIRROR="https://ghpxy.hwinzniej.top/"
+GITHUB_RELEASES_MIRROR="https://wget.la/"
+
 
 CLIENT_DATA_VERSION="v19"
 CLIENT_DATA_DOWNLOAD_URL="https://github.com/wowgaming/client-data/releases/download/${CLIENT_DATA_VERSION}/data.zip"

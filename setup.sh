@@ -29,6 +29,10 @@ function init_dir() {
 
 function init_acore() {
     gitClone $GIT_ACORE_URL $GIT_ACORE_BRANCH $SRC_ACORE_DIR
+    if [ $? -ne 0 ]; then
+        echo "错误: AzerothCore 仓库初始化失败，脚本已终止" >&2
+        exit 1
+    fi
 
     local custom_sql_dir="$WOTLK_DIR/data/sql/custom"
     local world="$custom_sql_dir/db_world"
@@ -56,6 +60,10 @@ function init_acore_module() {
         local mod_dir=$SRC_ACORE_MOD_DIR/$mod_name
 
         gitClone $GIT_ACORE_MODULE_URL "" $mod_dir
+        if [ $? -ne 0 ]; then
+            echo "错误: 模块 $mod_name 初始化失败，脚本已终止" >&2
+            exit 1
+        fi
 
         mv $mod_dir/$_world $mod_dir/$world 2>/dev/null || :
         mv $mod_dir/$_chars $mod_dir/$chars 2>/dev/null || :
