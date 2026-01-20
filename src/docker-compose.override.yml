@@ -1,9 +1,5 @@
 services:
   ac-database:
-    volumes:
-    - type: bind
-      source: ${DOCKER_VOL_DB:-ac-database}
-      target: /var/lib/mysql
     environment:
       TZ: ${TZ}
 
@@ -12,6 +8,10 @@ services:
       TZ: ${TZ}
     volumes:
       - ./modules:/azerothcore/modules:rw
+  ac-authserver:
+    environment:
+      TZ: ${TZ}
   ac-client-data-init:
     networks:
       - ac-network
+      
