@@ -8,6 +8,14 @@ readonly SRC_ACORE_MOD_DIR="$SRC_ACORE_DIR/modules"
 
 # 运行目录
 readonly WOTLK_DIR="$SCRIPT_DIR/wotlk"
+readonly WOTLK_SQL_DIR="$SRC_DIR/sql"
+readonly WOTLK_DB_NAMES=(
+    acore_auth
+    acore_world
+    acore_characters
+    acore_playerbots
+)
+
 readonly WOTLK_ETC_DIR="$WOTLK_DIR/etc"
 readonly WOTLK_LOG_DIR="$WOTLK_DIR/logs"
 readonly WOTLK_DATABASE_DIR="$WOTLK_DIR/database"

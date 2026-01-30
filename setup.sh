@@ -23,6 +23,10 @@ function init_dir() {
     mkdir -p $WOTLK_LOG_DIR && rm -rf $WOTLK_LOG_DIR/*
     # 数据库目录
     mkdir -p $WOTLK_DATABASE_DIR
+    # 自定义sql脚本目录
+    for WOTLK_DB_NAME in "${WOTLK_DB_NAMES[@]}"; do
+        mkdir -p $WOTLK_SQL_DIR/$WOTLK_DB_NAME
+    done
     # 客户端数据
     mkdir -p $WOTLK_CLIENT_DATA_DIR
 }
@@ -33,14 +37,6 @@ function init_acore() {
         echo "错误: AzerothCore 仓库初始化失败，脚本已终止" >&2
         exit 1
     fi
-
-    local custom_sql_dir="$WOTLK_DIR/data/sql/custom"
-    local world="$custom_sql_dir/db_world"
-    local chars="$custom_sql_dir/db_characters"
-    local auth="$custom_sql_dir/db_auth"
-
-    rm -rf $world/*.sql $chars/*.sql $auth/*.sql
-    
     cp $SRC_DIR/.env $SRC_ACORE_DIR/
     cp $SRC_DIR/*.yml $SRC_ACORE_DIR/
 }
@@ -79,19 +75,31 @@ function set_mirror() {
 
 function fix_permissions(){
     # 设置目录权限
+    mkdir -p $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs
     sudo chown -R 1000:1000 $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs 2>/dev/null || chown -R 1000:1000 $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs
     sudo chown -R 1000:1000 $WOTLK_DIR 2>/dev/null || chown -R 1000:1000 $WOTLK_DIR
     sudo chown -R 1000:1000 $SRC_ACORE_DIR 2>/dev/null || chown -R 1000:1000 $SRC_ACORE_DIR
-    sudo chown -R 775 $WOTLK_DATABASE_DIR 2>/dev/null || chown -R 775 $WOTLK_DATABASE_DIR
 }
 
-function build_image() {
-    docker compose -f $SRC_ACORE_DIR/docker-compose.yml --compatibility up -d --build
+function build_container() {
+    docker compose -f $SRC_ACORE_DIR/docker-compose.yml --compatibility up --build
+    fix_permissions
+    docker compose -f $SRC_ACORE_DIR/docker-compose.yml up ac-db-import
 }
 
-# function realmlist(){
-#     docker exec ac-database mysql -u root -ppassword acore_auth -e "UPDATE realmlist SET address = '$ip_address' WHERE id = 1;" 2>/dev/null && \
-# }
+function set_realmlist(){
+    execute_sql "acore_auth" "UPDATE realmlist SET address = '$REALMLIST_ADDRESS' WHERE id = 1;"
+    execute_sql "acore_auth" "SELECT id, name, address FROM realmlist;"
+    # docker exec ac-database mysql -u root -ppassword acore_auth -e "UPDATE realmlist SET address = '$REALMLIST_ADDRESS' WHERE id = 1;" 2>/dev/null
+    # docker exec ac-database mysql -u root -ppassword acore_auth -e "SELECT id, name, address FROM realmlist;" 2> /dev/null || true
+}
+
+function exec_custom_sql(){
+    for WOTLK_DB_NAME in "${WOTLK_DB_NAMES[@]}"; do
+        local sql_files=("$WOTLK_SQL_DIR/$WOTLK_DB_NAME"/*.sql)
+        execute_sql_files $WOTLK_DB_NAME $sql_files
+    done
+}
 
 
 main() {
@@ -101,8 +109,9 @@ main() {
     init_acore
     init_acore_module
     set_mirror
-    fix_permissions
-    build_image
+    build_container
+    set_realmlist
+    # exec_custom_sql
 }
 
 main "$@"

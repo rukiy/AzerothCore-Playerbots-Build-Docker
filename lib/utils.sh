@@ -8,6 +8,30 @@ function detectedIP() {
     echo "realmlist address: $REALMLIST_ADDRESS"
 }
 
+function execute_sql() {
+    local db_name=$1
+    local sql=$2
+    docker exec ac-database mysql -u root -p$DOCKER_DB_ROOT_PASSWORD $db_name -e "$sql"
+}
+
+function execute_sql_files() {
+    local db_name=$1
+    local sql_files=$2
+
+    local temp_sql_file="/tmp/temp_custom_sql.sql"
+    rm -f "$temp_sql_file"
+    if [ -e "${sql_files[0]}" ]; then
+        for custom_sql_file in "${sql_files[@]}"; do
+            echo "执行sql文件 $custom_sql_file"
+            temp_sql_file=$(mktemp)
+            cp "$custom_sql_file" "$temp_sql_file"
+            docker exec ac-database mysql -u root -p$DOCKER_DB_ROOT_PASSWORD "$db_name" < "$temp_sql_file" || \
+            echo "警告: 无法执行sql文件 $custom_sql_file "
+        done
+    fi
+    rm -f "$temp_sql_file"
+}
+
 # gitMirrorUrl - 处理 git 地址的镜像替换
 # 用法: gitMirrorUrl <原始git地址> [镜像地址]
 # 参数:
