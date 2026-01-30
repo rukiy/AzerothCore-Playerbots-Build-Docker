@@ -1,0 +1,34 @@
+{
+  "yaml.schemas": {
+    "https://docs.cnb.cool/conf-schema-zh.json": ".cnb.yml",
+    "https://docs.cnb.cool/tag-deploy-schema-zh.json": "tag_deploy.yml",
+    "https://docs.cnb.cool/web-trigger-schema-zh.json": "web_trigger.yml"
+  },
+  "security.workspace.trust.enabled": false,
+  "workbench.startupEditor": "none",
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "explorer.confirmDragAndDrop": false,
+  "codingcopilot.welcomeMessage": "never",
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "gitblame.inlineMessageEnabled": true,
+  "chat.commandCenter.enabled": false,
+  "git.autorefresh": true,
+  "yaml.customTags": [
+    "!reference sequence"
+  ],
+  "workbench.trustedDomains.promptInTrustedWorkspace": false,
+  "chat.disableAIFeatures": true,
+  "redhat.telemetry.enabled": true,
+  "workbench.colorTheme": "Default Dark Modern",
+  "breadcrumbs.enabled": false,
+  "window.menuBarVisibility": "classic",
+  "window.commandCenter": false,
+  "containers.commands.attach": "${containerCommand} exec -it ${containerId} ${shellCommand}",
+  "git.autofetch": true,
+  "codingcopilot.autoRun": true,
+  "codingcopilot.taskList": true,
+  "editor.codeActionsOnSave": {},
+  "workbench.secondarySideBar.defaultVisibility": "hidden"
+}
