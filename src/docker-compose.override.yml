@@ -2,7 +2,10 @@ services:
   ac-database:
     environment:
       TZ: ${TZ}
-
+  ac-db-import:
+    environment:
+      TZ: ${TZ}
+      AC_PLAYERBOTS_DATABASE_INFO: "ac-database;3306;root;${DOCKER_DB_ROOT_PASSWORD:-password};acore_playerbots"
   ac-worldserver:
     environment:
       TZ: ${TZ}
