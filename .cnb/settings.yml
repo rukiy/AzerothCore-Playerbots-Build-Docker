@@ -1,0 +1,38 @@
+# .cnb/settings.yml
+# 如下参数均为可选参数
+
+# 云原生开发配置，读取云原生启动按钮所在页面当前分支的 .cnb/settings.yml 配置
+workspace:
+  launch:
+    # 定制云原生开发启动按钮
+    button:
+      # 按钮名称
+      name: 开始开发
+      # 按钮描述
+      # 如果值为 null，则不显示默认描述
+      description: 点击此按钮启动云原生开发环境
+      # 鼠标悬浮在按钮上显示的图片
+      # 1.用仓库中当前分支的图片，填写相对仓库根目录的路径，如 .cnb/launch-hover.gif;
+      # 2.使用当前域名下的文件 raw 地址，比如：https://cnb.cool/my/test/-/git/raw/main/launch-hover.gif
+      # 图片最大 10MB
+    #   hoverImage: .cnb/launch-hover.gif
+    # CPU 核心数，默认为：8。仅对默认模版有效，如果有自定义云原生开发启动流水线，则此配置无效
+    cpus: 4
+    # 是否禁用默认按钮。默认为：false 表示不禁用。true 表示禁用
+    disabled: false
+    # 环境创建完是否自动打开 WebIDE，默认为 false
+    # 当开发环境中未安装 openssh(仅支持 WebIDE)：无论此参数配置为 true 还是 false，环境创建完都将自动打开 WebIDE
+    autoOpenWebIDE: false
+
+
+# fork 配置，读取仓库默认分支 .cnb/settings.yml 配置
+fork:
+  # 定制 fork 按钮
+  button:
+    # 按钮描述
+    description: 你的仓库不错，现在是我的了
+    # 鼠标悬浮在按钮上显示的图片
+    # 1.用仓库中当前分支的图片，填写相对仓库根目录的路径，如 .cnb/fork-hover.png;
+    # 2.使用当前域名下的文件 raw 地址，比如：https://cnb.cool/my/test/-/git/raw/main/.cnb/fork-hover.png
+    # 图片最大 10MB
+    # hoverImage: .cnb/fork-hover.png
