@@ -5,7 +5,6 @@ REALMLIST_ADDRESS=
 # UBUNTU_MIRROR="mirrors.aliyun.com"
 UBUNTU_MIRROR="mirrors.ustc.edu.cn"
 
-# GITHUB_GIT_MIRROR=
 # GITHUB_GIT_MIRROR="https://githubfast.com/"
 # GITHUB_GIT_MIRROR="https://kkgithub.com/"
 
