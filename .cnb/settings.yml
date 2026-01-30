@@ -7,7 +7,7 @@ workspace:
     # 定制云原生开发启动按钮
     button:
       # 按钮名称
-      name: 开始开发
+      name: 启动!
       # 按钮描述
       # 如果值为 null，则不显示默认描述
       description: 点击此按钮启动云原生开发环境
