@@ -2,19 +2,11 @@
 readonly SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")" 2>/dev/null || dirname "${BASH_SOURCE[0]}")
 
 source "$SCRIPT_DIR/src/.env"
+source "$SCRIPT_DIR/mirror.conf"
 source "$SCRIPT_DIR/lib/env.sh"
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/utils.sh"
 source "$SCRIPT_DIR/lib/client.sh"
-
-
-
-function init_config() {
-    # 设置 realmlist address
-    detectedIP
-    # 设置时区
-    sudo sed -i "s|^TZ=.*$|TZ=$(cat /etc/timezone)|" $SRC_DIR/.env 2>/dev/null || true
-}
 
 function init_dir() {
     # 配置目录
@@ -39,6 +31,9 @@ function init_acore() {
     fi
     cp $SRC_DIR/.env $SRC_ACORE_DIR/
     cp $SRC_DIR/*.yml $SRC_ACORE_DIR/
+
+    # 设置时区
+    sudo sed -i "s|^TZ=.*$|TZ=$(cat /etc/timezone)|" $SRC_ACORE_DIR/.env 2>/dev/null || true
 }
 
 function init_acore_module() {
@@ -75,23 +70,26 @@ function set_mirror() {
 
 function fix_permissions(){
     # 设置目录权限
-    mkdir -p $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs
-    sudo chown -R 1000:1000 $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs 2>/dev/null || chown -R 1000:1000 $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs
+    # mkdir -p $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs
+    sudo chown -R 1000:1000 $SRC_ACORE_DIR/modules $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs 2>/dev/null || chown -R 1000:1000 $SRC_ACORE_DIR/modules $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs
     sudo chown -R 1000:1000 $WOTLK_DIR 2>/dev/null || chown -R 1000:1000 $WOTLK_DIR
     sudo chown -R 1000:1000 $SRC_ACORE_DIR 2>/dev/null || chown -R 1000:1000 $SRC_ACORE_DIR
 }
 
 function build_container() {
-    docker compose -f $SRC_ACORE_DIR/docker-compose.yml --compatibility up --build
     fix_permissions
-    docker compose -f $SRC_ACORE_DIR/docker-compose.yml up ac-db-import
+    docker compose -f $SRC_ACORE_DIR/docker-compose.yml -f $SRC_ACORE_DIR/docker-compose.override.yml --compatibility up -d --build
+    # fix_permissions
+    # docker compose -f $SRC_ACORE_DIR/docker-compose.yml -f $SRC_ACORE_DIR/docker-compose.override.yml restart ac-db-import
+    sleep 15
 }
 
 function set_realmlist(){
+    # 获取 realmlist address
+    detectedIP
+    # 更新到数据库
     execute_sql "acore_auth" "UPDATE realmlist SET address = '$REALMLIST_ADDRESS' WHERE id = 1;"
     execute_sql "acore_auth" "SELECT id, name, address FROM realmlist;"
-    # docker exec ac-database mysql -u root -ppassword acore_auth -e "UPDATE realmlist SET address = '$REALMLIST_ADDRESS' WHERE id = 1;" 2>/dev/null
-    # docker exec ac-database mysql -u root -ppassword acore_auth -e "SELECT id, name, address FROM realmlist;" 2> /dev/null || true
 }
 
 function exec_custom_sql(){
@@ -103,7 +101,6 @@ function exec_custom_sql(){
 
 
 main() {
-    init_config
     init_dir
     init_client
     init_acore
@@ -111,7 +108,7 @@ main() {
     set_mirror
     build_container
     set_realmlist
-    # exec_custom_sql
+    exec_custom_sql
 }
 
 main "$@"
