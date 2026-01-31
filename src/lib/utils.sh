@@ -1,11 +1,19 @@
 #!/bin/bash
 
-function detectedIP() {
-    if test -z "$REALMLIST_ADDRESS" 
+function realmListServer() {
+    if test -z "$REALMLIST_NAME"
     then
-        REALMLIST_ADDRESS=$(hostname -I | awk '{print $1}')        
+        REALMLIST_NAME="艾泽拉斯"       
     fi
-    echo "realmlist address: $REALMLIST_ADDRESS"
+    if test -z "$REALMLIST_LOCAL_ADDRESS"
+    then
+        REALMLIST_LOCAL_ADDRESS=$(hostname -I | awk '{print $1}')        
+    fi
+    if test -z "$REALMLIST_ADDRESS"
+    then
+        REALMLIST_ADDRESS=$REALMLIST_LOCAL_ADDRESS       
+    fi
+    echo "realmlist address: $REALMLIST_ADDRESS  localaddress: $REALMLIST_LOCAL_ADDRESS"
 }
 
 function execute_sql() {
