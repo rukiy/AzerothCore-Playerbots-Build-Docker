@@ -3,7 +3,7 @@
 function realmListServer() {
     if test -z "$REALMLIST_NAME"
     then
-        REALMLIST_NAME="艾泽拉斯"       
+        REALMLIST_NAME="Azeroth"
     fi
     if test -z "$REALMLIST_LOCAL_ADDRESS"
     then
