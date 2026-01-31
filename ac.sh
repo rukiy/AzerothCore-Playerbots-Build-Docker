@@ -4,8 +4,8 @@ set -e
 
 readonly SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")" 2>/dev/null || dirname "${BASH_SOURCE[0]}")
 
+source "$SCRIPT_DIR/ac.conf"
 source "$SCRIPT_DIR/src/.env"
-source "$SCRIPT_DIR/setting.conf"
 source "$SCRIPT_DIR/src/lib/config.sh"
 source "$SCRIPT_DIR/src/lib/utils.sh"
 source "$SCRIPT_DIR/src/lib/client.sh"

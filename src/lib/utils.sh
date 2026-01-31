@@ -217,3 +217,15 @@ gitClone() {
         return 1
     fi
 }
+
+set_conf() {
+    readonly path=$1
+    for file in $path/*.dist; do
+        local newFileName=$(basename -s .dist $file)
+        local newFile=$path/$newFileName
+        if [[ ! -f "$newFile" ]]; then
+            cp -vn "$file" "$newFile">/dev/null 2>&1
+            echo "$file -> $newFile"
+        fi
+    done
+}

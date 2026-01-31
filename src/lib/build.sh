@@ -71,9 +71,8 @@ function fix_permissions(){
 function build_container() {
     fix_permissions
     docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d --build
-    # fix_permissions
-    # docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml restart ac-db-import
     sleep 15
+    set_conf
 }
 
 function set_realmlist(){
