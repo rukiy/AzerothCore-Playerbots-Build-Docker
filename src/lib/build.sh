@@ -1,12 +1,4 @@
 #!/bin/bash
-readonly SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")" 2>/dev/null || dirname "${BASH_SOURCE[0]}")
-
-source "$SCRIPT_DIR/src/.env"
-source "$SCRIPT_DIR/mirror.conf"
-source "$SCRIPT_DIR/lib/env.sh"
-source "$SCRIPT_DIR/lib/config.sh"
-source "$SCRIPT_DIR/lib/utils.sh"
-source "$SCRIPT_DIR/lib/client.sh"
 
 function init_dir() {
     # 配置目录
@@ -24,16 +16,16 @@ function init_dir() {
 }
 
 function init_acore() {
-    gitClone $GIT_ACORE_URL $GIT_ACORE_BRANCH $SRC_ACORE_DIR
+    gitClone $GIT_ACORE_URL $GIT_ACORE_BRANCH $BUILD_ACORE_DIR
     if [ $? -ne 0 ]; then
         echo "错误: AzerothCore 仓库初始化失败，脚本已终止" >&2
         exit 1
     fi
-    cp $SRC_DIR/.env $SRC_ACORE_DIR/
-    cp $SRC_DIR/*.yml $SRC_ACORE_DIR/
+    cp $SRC_DIR/.env $BUILD_ACORE_DIR/
+    cp $SRC_DIR/*.yml $BUILD_ACORE_DIR/
 
     # 设置时区
-    sudo sed -i "s|^TZ=.*$|TZ=$(cat /etc/timezone)|" $SRC_ACORE_DIR/.env 2>/dev/null || true
+    sudo sed -i "s|^TZ=.*$|TZ=$(cat /etc/timezone)|" $BUILD_ACORE_DIR/.env 2>/dev/null || sed -i "s|^TZ=.*$|TZ=$(cat /etc/timezone)|" $BUILD_ACORE_DIR/.env 2>/dev/null || true
 }
 
 function init_acore_module() {
@@ -48,7 +40,7 @@ function init_acore_module() {
 
     for GIT_ACORE_MODULE_URL in "${GIT_ACORE_MODULE_URLS[@]}"; do
         local mod_name=$(basename -s .git $GIT_ACORE_MODULE_URL)
-        local mod_dir=$SRC_ACORE_MOD_DIR/$mod_name
+        local mod_dir=$BUILD_ACORE_MOD_DIR/$mod_name
 
         gitClone $GIT_ACORE_MODULE_URL "" $mod_dir
         if [ $? -ne 0 ]; then
@@ -65,22 +57,22 @@ function init_acore_module() {
 function set_mirror() {
     # dockerfile
     local DOCKERFILE_MIRROR_CMD="RUN sed -i 's\/archive.ubuntu.com\/${UBUNTU_MIRROR}\/g' \/etc\/apt\/sources.list \&\& sed -i 's\/security.ubuntu.com\/${UBUNTU_MIRROR}\/g' \/etc\/apt\/sources.list \&\& apt-get update"
-    sed -i "s#RUN apt-get update#${DOCKERFILE_MIRROR_CMD}#g" "${SRC_ACORE_DIR}/apps/docker/Dockerfile"
+    sed -i "s#RUN apt-get update#${DOCKERFILE_MIRROR_CMD}#g" "${BUILD_ACORE_DIR}/apps/docker/Dockerfile"
 }
 
 function fix_permissions(){
     # 设置目录权限
-    # mkdir -p $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs
-    sudo chown -R 1000:1000 $SRC_ACORE_DIR/modules $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs 2>/dev/null || chown -R 1000:1000 $SRC_ACORE_DIR/modules $SRC_ACORE_DIR/env/dist/etc $SRC_ACORE_DIR/env/dist/logs
+    # mkdir -p $BUILD_ACORE_DIR/env/dist/etc $BUILD_ACORE_DIR/env/dist/logs
+    sudo chown -R 1000:1000 $BUILD_ACORE_DIR/modules $BUILD_ACORE_DIR/env/dist/etc $BUILD_ACORE_DIR/env/dist/logs 2>/dev/null || chown -R 1000:1000 $BUILD_ACORE_DIR/modules $BUILD_ACORE_DIR/env/dist/etc $BUILD_ACORE_DIR/env/dist/logs
     sudo chown -R 1000:1000 $WOTLK_DIR 2>/dev/null || chown -R 1000:1000 $WOTLK_DIR
-    sudo chown -R 1000:1000 $SRC_ACORE_DIR 2>/dev/null || chown -R 1000:1000 $SRC_ACORE_DIR
+    sudo chown -R 1000:1000 $BUILD_ACORE_DIR 2>/dev/null || chown -R 1000:1000 $BUILD_ACORE_DIR
 }
 
 function build_container() {
     fix_permissions
-    docker compose -f $SRC_ACORE_DIR/docker-compose.yml -f $SRC_ACORE_DIR/docker-compose.override.yml --compatibility up -d --build
+    docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d --build
     # fix_permissions
-    # docker compose -f $SRC_ACORE_DIR/docker-compose.yml -f $SRC_ACORE_DIR/docker-compose.override.yml restart ac-db-import
+    # docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml restart ac-db-import
     sleep 15
 }
 
@@ -100,7 +92,7 @@ function exec_custom_sql(){
 }
 
 
-main() {
+function build() {
     init_dir
     init_client
     init_acore
@@ -110,5 +102,3 @@ main() {
     set_realmlist
     exec_custom_sql
 }
-
-main "$@"

@@ -3,7 +3,7 @@
 function init_client {
     local readonly VERSION="$CLIENT_DATA_VERSION"
     local readonly path="${WOTLK_CLIENT_DATA_DIR}"
-    local readonly zipPath="${SRC_ACORE_CLIENT_DIR}/data.${VERSION}.zip"
+    local readonly zipPath="${BUILD_CLIENT_ZIP_DIR}/data.${VERSION}.zip"
     local readonly dataVersionFile="${path}/data-version"
 
     # 加载已安装的版本信息
@@ -12,7 +12,7 @@ function init_client {
     fi
 
     # 创建必要的目录
-    mkdir -p "$path" "$SRC_ACORE_CLIENT_DIR"
+    mkdir -p "$path" "$BUILD_CLIENT_ZIP_DIR"
 
     # 检查是否已安装相同版本
     if [ "$VERSION" == "$INSTALLED_VERSION" ]; then

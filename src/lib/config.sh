@@ -28,3 +28,26 @@ GIT_ACORE_MODULE_URLS=(
     # 在服务器中添加功能性服务NPC。它通过在游戏内提供一个或多个综合NPC，实现如自动学技能、免费转种族、传送、洗天赋等功能
     https://github.com/azerothcore/mod-npc-services.git
 )
+
+# 源码目录
+readonly SRC_DIR="$SCRIPT_DIR/src"
+
+# 构建文件目录
+readonly BUILD_DIR="$SCRIPT_DIR/build"
+readonly BUILD_ACORE_DIR="$BUILD_DIR/azerothcore-wotlk"
+readonly BUILD_CLIENT_ZIP_DIR="$BUILD_DIR"
+readonly BUILD_ACORE_MOD_DIR="$BUILD_ACORE_DIR/modules"
+
+# 运行目录
+readonly WOTLK_DIR="$SCRIPT_DIR/wotlk"
+readonly WOTLK_SQL_DIR="$SRC_DIR/sql"
+readonly WOTLK_DB_NAMES=(
+    acore_auth
+    acore_world
+    acore_characters
+    acore_playerbots
+)
+readonly WOTLK_ETC_DIR="$WOTLK_DIR/etc"
+readonly WOTLK_LOG_DIR="$WOTLK_DIR/logs"
+readonly WOTLK_DATABASE_DIR="$WOTLK_DIR/database"
+readonly WOTLK_CLIENT_DATA_DIR="$WOTLK_DIR/client"
