@@ -3,6 +3,7 @@
 function init_dir() {
     # 配置目录
     mkdir -p $WOTLK_ETC_DIR
+    mkdir -p $WOTLK_ETC_MODULES_DIR
     # 日志目录
     mkdir -p $WOTLK_LOG_DIR && rm -rf $WOTLK_LOG_DIR/*
     # 数据库目录
@@ -52,6 +53,16 @@ function init_acore_module() {
         mv $mod_dir/$_chars $mod_dir/$chars 2>/dev/null || :
         mv $mod_dir/$_auth $mod_dir/$auth 2>/dev/null || :
     done
+
+    for mod_conf_dist_file in `find $BUILD_ACORE_MOD_DIR -name "*.conf.dist"`
+    do
+        local mod_conf_file_name=$(basename -s .dist $mod_conf_dist_file)
+        local mod_conf_file=$WOTLK_ETC_MODULES_DIR/$mod_conf_file_name
+        if [[ ! -f "$mod_conf_file" ]]; then
+            cp -p "$mod_conf_dist_file" "$mod_conf_file">/dev/null 2>&1 && \
+            echo "$mod_conf_dist_file -> $mod_conf_file"
+        fi
+    done
 }
 
 function set_mirror() {
@@ -62,7 +73,6 @@ function set_mirror() {
 
 function fix_permissions(){
     # 设置目录权限
-    # mkdir -p $BUILD_ACORE_DIR/env/dist/etc $BUILD_ACORE_DIR/env/dist/logs
     sudo chown -R 1000:1000 $BUILD_ACORE_DIR/modules $BUILD_ACORE_DIR/env/dist/etc $BUILD_ACORE_DIR/env/dist/logs 2>/dev/null || chown -R 1000:1000 $BUILD_ACORE_DIR/modules $BUILD_ACORE_DIR/env/dist/etc $BUILD_ACORE_DIR/env/dist/logs
     sudo chown -R 1000:1000 $WOTLK_DIR 2>/dev/null || chown -R 1000:1000 $WOTLK_DIR
     sudo chown -R 1000:1000 $BUILD_ACORE_DIR 2>/dev/null || chown -R 1000:1000 $BUILD_ACORE_DIR
@@ -71,8 +81,6 @@ function fix_permissions(){
 function build_container() {
     fix_permissions
     docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d --build
-    sleep 15
-    set_conf $WOTLK_ETC_DIR/modules
 }
 
 function set_realmlist(){
@@ -89,7 +97,6 @@ function exec_custom_sql(){
         execute_sql_files $WOTLK_DB_NAME $sql_files
     done
 }
-
 
 function build() {
     init_dir

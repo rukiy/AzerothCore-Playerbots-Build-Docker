@@ -48,6 +48,7 @@ readonly WOTLK_DB_NAMES=(
     acore_playerbots
 )
 readonly WOTLK_ETC_DIR="$WOTLK_DIR/etc"
+readonly WOTLK_ETC_MODULES_DIR="$WOTLK_ETC_DIR/modules"
 readonly WOTLK_LOG_DIR="$WOTLK_DIR/logs"
 readonly WOTLK_DATABASE_DIR="$WOTLK_DIR/database"
 readonly WOTLK_CLIENT_DATA_DIR="$WOTLK_DIR/client"
