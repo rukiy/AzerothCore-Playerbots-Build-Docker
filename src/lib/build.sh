@@ -72,7 +72,7 @@ function build_container() {
     fix_permissions
     docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d --build
     sleep 15
-    set_conf
+    set_conf $WOTLK_ETC_DIR/modules
 }
 
 function set_realmlist(){
@@ -100,4 +100,23 @@ function build() {
     build_container
     set_realmlist
     exec_custom_sql
+
+    echo ""
+    echo "安装已完成！========================================"
+    echo ""
+    echo "安装成果："
+    echo "- 数据库已配置在3306端口"
+    echo "- 实境列表已自动配置为IP: $REALMLIST_ADDRESS"
+    echo "- 500个玩家机器人已就绪，提供即时多人游戏体验"
+    echo ""
+    echo "后续操作指引："
+    echo "1. 执行命令 'docker attach ac-worldserver'"
+    echo "2. 输入 'account create 用户名 密码' 创建账户"
+    echo "3. 输入 'account set gmlevel 用户名 3 -1' 设置账户为全服管理员"
+    echo "4. 按下 Ctrl+p Ctrl+q 退出世界服务器控制台"
+    echo "5. 编辑魔兽客户端 realmlist.wtf 文件，内容设为: $REALMLIST_ADDRESS"
+    echo "6. 使用3.3.5a客户端登录游戏"
+    echo "7. 所有配置文件已复制到wotlk文件夹"
+    echo ""
+    echo "祝您尽情享受拥有500个AI伙伴的私人魔兽世界服务器！======"
 }

@@ -224,7 +224,7 @@ set_conf() {
         local newFileName=$(basename -s .dist $file)
         local newFile=$path/$newFileName
         if [[ ! -f "$newFile" ]]; then
-            cp -vn "$file" "$newFile">/dev/null 2>&1
+            cp -p "$file" "$newFile">/dev/null 2>&1
             echo "$file -> $newFile"
         fi
     done

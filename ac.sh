@@ -20,17 +20,23 @@ install() {
     build
 }
 
-start() {
-	docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d
-}
+updown() {
+    containers=("ac-worldserver" "ac-authserver" "ac-database")
+    all_running=true
+    for container in "${containers[@]}"; do
+        if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
+            all_running=false
+            break
+        fi
+    done
 
-stop() {
-	docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml down
-}
-
-restart() {
-	stop
-	start
+    if $all_running; then
+        echo "Stopping containers: ${containers[*]}"
+        docker stop "${containers[@]}"
+    else
+        echo "Starting containers: ${containers[*]}"
+        docker start "${containers[@]}"
+    fi
 }
 
 ps() {
@@ -43,12 +49,12 @@ clean() {
 }
 
 case "$1" in
-	install|start|stop|restart|ps|clean)
+	install|updown|ps|clean)
 		"$1"
 		;;
 
 	*)
-		echo "Usage $0 {install|start|stop|restart|ps|clean}"
+		echo "Usage $0 {install|updown|ps|clean}"
 		exit 1
 		;;
 esac
