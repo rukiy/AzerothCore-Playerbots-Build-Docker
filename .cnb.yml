@@ -25,10 +25,9 @@ $:
       
 main:
   push:
-    - imports:
-        - https://cnb.cool/rukiyz/secret/-/blob/main/github.yml
     - stages:
         - name: sync to github
+          imports: https://cnb.cool/rukiyz/secret/-/blob/main/github.yml
           image: tencentcom/git-sync
           settings:
             target_url: https://github.com/rukiy/AzerothCore-with-Playerbots-Docker-Setup.git
