@@ -8,6 +8,8 @@ function init_dir() {
     mkdir -p $WOTLK_LOG_DIR && rm -rf $WOTLK_LOG_DIR/*
     # 数据库目录
     mkdir -p $WOTLK_DATABASE_DIR
+    # lua 脚本目录
+    mkdir -p $WOTLK_LUA_SCRIPT_DIR
     # 自定义sql脚本目录
     for WOTLK_DB_NAME in "${WOTLK_DB_NAMES[@]}"; do
         mkdir -p $WOTLK_SQL_DIR/$WOTLK_DB_NAME

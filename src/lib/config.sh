@@ -40,6 +40,7 @@ readonly BUILD_ACORE_MOD_DIR="$BUILD_ACORE_DIR/modules"
 
 # 运行目录
 readonly WOTLK_DIR="$SCRIPT_DIR/wotlk"
+readonly WOTLK_LUA_SCRIPT_DIR="$WOTLK_ETC_DIR/lua_scripts"
 readonly WOTLK_SQL_DIR="$SRC_DIR/sql"
 readonly WOTLK_DB_NAMES=(
     acore_auth
