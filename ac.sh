@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/src/lib/config.sh"
 source "$SCRIPT_DIR/src/lib/utils.sh"
 source "$SCRIPT_DIR/src/lib/client.sh"
 source "$SCRIPT_DIR/src/lib/build.sh"
+source "$SCRIPT_DIR/fix.sh"
 
 if [ "$(id -u)" != 0 ]; then
 	echo >&2 "error: must be root to invoke $0"

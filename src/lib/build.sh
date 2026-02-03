@@ -65,6 +65,8 @@ function init_acore_module() {
             echo "$mod_conf_dist_file -> $mod_conf_file"
         fi
     done
+
+    sed -i 's|ALE.ScriptPath = "lua_scripts"|ALE.ScriptPath = "/azerothcore/lua_scripts/"|g' "${WOTLK_ETC_MODULES_DIR}/mod_ale.conf"
 }
 
 function set_mirror() {
@@ -106,6 +108,7 @@ function build() {
     init_acore
     init_acore_module
     set_mirror
+    fix-script
     build_container
     set_realmlist
     exec_custom_sql

@@ -10,6 +10,7 @@ services:
       TZ: ${TZ}
     volumes:
       - ./modules:/azerothcore/modules:rw
+      - ${WOTLK_LUA_SCRIPT_DIR}:/azerothcore/lua_scripts:rw
   ac-authserver:
     environment:
       TZ: ${TZ}

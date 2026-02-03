@@ -18,7 +18,17 @@ $:
         - vscode
         # 声明在容器中支持 docker 命令
         - docker
-      stages:
-        # 环境启动后需要执行的命令
-        - name: ls
-          script: ls -al
+      # stages:
+      #   # 环境启动后需要执行的命令
+      #   - name: ls
+      #     script: ls -al
+main:
+  push:
+    - stages:
+        - name: sync to github
+          image: tencentcom/git-sync
+          settings:
+            target_url: https://github.com/rukiy/AzerothCore-with-Playerbots-Docker-Setup.git
+            auth_type: https
+            username: ${GIT_USERNAME}
+            password: ${GIT_ACCESS_TOKEN}
