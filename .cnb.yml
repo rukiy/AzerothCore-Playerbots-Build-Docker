@@ -30,7 +30,7 @@ main:
           imports: https://cnb.cool/rukiyz/secret/-/blob/main/github.yml
           image: tencentcom/git-sync
           settings:
-            target_url: https://github.com/rukiy/AzerothCore-with-Playerbots-Docker-Setup.git
+            target_url: https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker.git
             auth_type: https
             username: ${GITHUB_USERNAME}
             password: ${GITHUB_ACCESS_TOKEN}
