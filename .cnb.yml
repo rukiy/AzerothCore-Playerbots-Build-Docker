@@ -22,11 +22,12 @@ $:
       #   # 环境启动后需要执行的命令
       #   - name: ls
       #     script: ls -al
+      
 main:
   push:
-    imports:
+    - imports:
         - https://cnb.cool/rukiyz/secret/-/blob/main/github.yml
-    stages:
+    - stages:
         - name: sync to github
           image: tencentcom/git-sync
           settings:
