@@ -24,11 +24,13 @@ $:
       #     script: ls -al
 main:
   push:
-    - stages:
+    imports:
+        - https://cnb.cool/rukiyz/secret/-/blob/main/github.yml
+    stages:
         - name: sync to github
           image: tencentcom/git-sync
           settings:
             target_url: https://github.com/rukiy/AzerothCore-with-Playerbots-Docker-Setup.git
             auth_type: https
-            username: ${GIT_USERNAME}
-            password: ${GIT_ACCESS_TOKEN}
+            username: ${GITHUB_USERNAME}
+            password: ${GITHUB_ACCESS_TOKEN}
