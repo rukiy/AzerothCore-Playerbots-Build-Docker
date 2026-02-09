@@ -1,16 +1,6 @@
 #!/bin/bash
-
 set -e
-
-readonly SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")" 2>/dev/null || dirname "${BASH_SOURCE[0]}")
-
-source "$SCRIPT_DIR/ac.conf"
-source "$SCRIPT_DIR/src/.env"
-source "$SCRIPT_DIR/src/lib/config.sh"
-source "$SCRIPT_DIR/src/lib/utils.sh"
-source "$SCRIPT_DIR/src/lib/client.sh"
-source "$SCRIPT_DIR/src/lib/build.sh"
-source "$SCRIPT_DIR/fix.sh"
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")" 2>/dev/null || dirname "${BASH_SOURCE[0]}")/src/lib.sh"
 
 if [ "$(id -u)" != 0 ]; then
 	echo >&2 "error: must be root to invoke $0"

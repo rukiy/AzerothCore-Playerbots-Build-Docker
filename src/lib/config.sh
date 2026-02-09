@@ -34,16 +34,18 @@ GIT_ACORE_MODULE_URLS=(
 )
 
 # 源码目录
-readonly SRC_DIR="$SCRIPT_DIR/src"
+readonly SRC_DIR="$WORKSPACE_SCRIPT_DIR/src"
+readonly SRC_LIB_DIR="$SRC_DIR/lib"
+readonly SRC_LIB_EXTRA_DIR="$SRC_LIB_DIR/extra"
 
 # 构建文件目录
-readonly BUILD_DIR="$SCRIPT_DIR/build"
+readonly BUILD_DIR="$WORKSPACE_SCRIPT_DIR/build"
 readonly BUILD_ACORE_DIR="$BUILD_DIR/azerothcore-wotlk"
 readonly BUILD_CLIENT_ZIP_DIR="$BUILD_DIR"
 readonly BUILD_ACORE_MOD_DIR="$BUILD_ACORE_DIR/modules"
 
 # 运行目录
-readonly WOTLK_DIR="$SCRIPT_DIR/wotlk"
+readonly WOTLK_DIR="$WORKSPACE_SCRIPT_DIR/wotlk"
 readonly WOTLK_SQL_DIR="$SRC_DIR/sql"
 readonly WOTLK_DB_NAMES=(
     acore_auth

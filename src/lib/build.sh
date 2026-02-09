@@ -108,7 +108,7 @@ function build() {
     init_acore
     init_acore_module
     set_mirror
-    fix-script
+    fix
     build_container
     set_realmlist
     exec_custom_sql
