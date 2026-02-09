@@ -3,7 +3,7 @@
 readonly PLAYERBOTS_SQL_CUSTOM_PATH="$BUILD_ACORE_MOD_DIR/mod-playerbots/data/sql/characters/custom"
 
 
-generate_playerbots_custom_sql() {
+playerbots_custom_sql() {
     mkdir -p $PLAYERBOTS_SQL_CUSTOM_PATH
     # 替换playerbots_names表中的名字
     generate_playerbots_names_sql
@@ -25,6 +25,7 @@ playerbots_names_custom_handler() {
 }
 
 generate_playerbots_names_sql() {
+    echo "开始生成playerbots_names表的SQL语句"
     local NAMES_DICT_FILE="$SRC_LIB_EXTRA_DIR/playerbots_names_dict.txt"
     local NEW_NAMES_SQL_FILE="new_playerbots_names.sql"
     local TABLE_NAME="playerbots_names"    
@@ -46,6 +47,7 @@ playerbots_guild_names_custom_handler() {
 }
 
 generate_playerbots_guild_names_sql() {
+    echo "开始生成playerbots_guild_names表的SQL语句"
     local GUILD_NAMES_DICT_FILE="$SRC_LIB_EXTRA_DIR/playerbots_guild_names_dict.txt"
     local NEW_GUILD_NAMES_SQL_FILE="new_playerbots_guild_names.sql"
     local TABLE_NAME="playerbots_guild_names"
