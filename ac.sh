@@ -8,50 +8,20 @@ if [ "$(id -u)" != 0 ]; then
 fi
 
 install() {
-    clean
-    build
+    build 1
 }
 
-update() {    
-    build
-}
-
-auto() {
-    containers=("ac-worldserver" "ac-authserver" "ac-database")
-    all_running=true
-    for container in "${containers[@]}"; do
-        if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
-            all_running=false
-            break
-        fi
-    done
-
-    if $all_running; then
-        echo "Stopping containers: ${containers[*]}"
-        docker stop "${containers[@]}"
-    else
-        echo "Starting containers: ${containers[*]}"
-        docker start "${containers[@]}"
-    fi
-}
-
-ps() {
-	docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml ps
-}
-
-clean() {
-    docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml down --rmi local
-    echo "删除运行数据: $WOTLK_DIR"
-	rm -rf $WOTLK_DIR
+update() {
+    build 0
 }
 
 case "$1" in
-	install|update|auto|ps|clean)
+	install|update|toggle|uninstall)
 		"$1"
 		;;
 
 	*)
-		echo "Usage $0 {install|update|auto|ps|clean}"
+		echo "Usage $0 {install|update|toggle|uninstall}"
 		exit 1
 		;;
 esac

@@ -1,6 +1,8 @@
 #!/bin/bash
 
-function init_client {
+set -e
+
+function client {
     local readonly VERSION="$CLIENT_DATA_VERSION"
     local readonly path="${WOTLK_CLIENT_DATA_DIR}"
     local readonly zipPath="${BUILD_CLIENT_ZIP_DIR}/data.${VERSION}.zip"
