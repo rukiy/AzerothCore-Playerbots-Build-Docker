@@ -14,7 +14,7 @@ GIT_ACORE_MODULE_URLS=(
     # 范围拾取，允许玩家一次性拾取周围一定范围内所有NPC尸体掉落的物品，极大提升了刷怪拾取效率
     https://github.com/azerothcore/mod-aoe-loot.git
     # 模拟玩家在不同扩展包和等级之间的个人进度。它强制玩家按顺序体验游戏内容，确保NPC和游戏对象根据每个玩家的进度显示
-    # https://github.com/ZhengPeiRu21/mod-individual-progression.git
+    https://github.com/ZhengPeiRu21/mod-individual-progression.git
     # 类似“大灾变”版本及之后的特性：角色在升级时会自动学会职业新技能，无需寻找训练师。 
     https://github.com/noisiver/mod-learnspells.git
     # 当玩家在服务器上升级时，会在其角色周围自动触发烟花表演，作为一种庆典效果
