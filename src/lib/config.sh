@@ -26,7 +26,7 @@ GIT_ACORE_MODULE_URLS=(
     # 它实现了装备幻化功能，允许玩家将任意一件装备外观变更为另一件装备的样式
     https://github.com/azerothcore/mod-transmog.git
     # 在游戏内的阵营拍卖行中自动售卖和竞标物品。它能模拟真实玩家行为，独立执行拍卖行操作，帮助保持游戏内经济活跃，特别适用于低人口服务器
-    https://github.com/azerothcore/mod-ah-bot.git
+    https://github.com/NathanHandley/mod-ah-bot-plus.git
     # 该模块允许你按类别、比赛和等级配置一系列奖品。玩家达到这些等级后，可以获得金币、法术或物品。如果你不想交付任何一个，
     https://github.com/azerothcore/mod-congrats-on-level.git
     # 跨阵营战场
@@ -35,6 +35,7 @@ GIT_ACORE_MODULE_URLS=(
 
 # 源码目录
 readonly SRC_DIR="$WORKSPACE_SCRIPT_DIR/src"
+readonly SRC_DATA_DBC_ZIPFILE="$SRC_DIR/data/dbc.zip"
 readonly SRC_LIB_DIR="$SRC_DIR/lib"
 readonly SRC_LIB_EXTRA_DIR="$SRC_LIB_DIR/extra"
 
@@ -58,4 +59,6 @@ readonly WOTLK_ETC_MODULES_DIR="$WOTLK_ETC_DIR/modules"
 readonly WOTLK_LUA_SCRIPT_DIR="$WOTLK_DIR/lua_scripts"
 readonly WOTLK_LOG_DIR="$WOTLK_DIR/logs"
 readonly WOTLK_DATABASE_DIR="$WOTLK_DIR/database"
+readonly WOTLK_DATABASE_MYQL_CNF="$WOTLK_DATABASE_DIR/conf.d"
+readonly WOTLK_DATABASE_MYQL_DIR="$WOTLK_DATABASE_DIR/mysql"
 readonly WOTLK_CLIENT_DATA_DIR="$WOTLK_DIR/client"

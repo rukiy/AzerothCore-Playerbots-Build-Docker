@@ -4,6 +4,7 @@ function init_client {
     local readonly VERSION="$CLIENT_DATA_VERSION"
     local readonly path="${WOTLK_CLIENT_DATA_DIR}"
     local readonly zipPath="${BUILD_CLIENT_ZIP_DIR}/data.${VERSION}.zip"
+    local readonly dbcZhZipPath="${SRC_DATA_DBC_ZIPFILE}"
     local readonly dataVersionFile="${path}/data-version"
 
     # 加载已安装的版本信息
@@ -33,13 +34,6 @@ function init_client {
         fi
     fi
 
-    # 验证数据包完整性
-    if ! unzip -t "$zipPath" > /dev/null 2>&1; then
-        echo "错误: 数据包损坏或不完整"
-        [ -f "$zipPath" ] && rm -f "$zipPath"
-        return 1
-    fi
-
     # 清理旧数据
     echo "清理旧数据: $path"
     rm -rf "$path"/*
@@ -47,6 +41,12 @@ function init_client {
     # 解压数据包
     echo "解压数据包到: $path"
     if ! unzip -q -o "$zipPath" -d "$path/"; then
+        echo "错误: 解压失败"
+        return 1
+    fi
+
+    echo "解压dbc数据包到: $path"
+    if ! unzip -q -o "$dbcZhZipPath" -d "$path/dbc"; then
         echo "错误: 解压失败"
         return 1
     fi

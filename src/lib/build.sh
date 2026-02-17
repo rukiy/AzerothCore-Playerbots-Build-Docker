@@ -7,7 +7,8 @@ function init_dir() {
     # 日志目录
     mkdir -p $WOTLK_LOG_DIR && rm -rf $WOTLK_LOG_DIR/*
     # 数据库目录
-    mkdir -p $WOTLK_DATABASE_DIR
+    mkdir -p $WOTLK_DATABASE_MYQL_DIR
+    mkdir -p $WOTLK_DATABASE_MYQL_CNF
     # lua 脚本目录
     mkdir -p $WOTLK_LUA_SCRIPT_DIR
     # 自定义sql脚本目录
@@ -26,6 +27,8 @@ function init_acore() {
     fi
     cp $SRC_DIR/.env $BUILD_ACORE_DIR/
     cp $SRC_DIR/*.yml $BUILD_ACORE_DIR/
+
+    cp $SRC_DIR/conf.d/*.cnf $WOTLK_DATABASE_MYQL_CNF/
 
     # 设置时区
     sudo sed -i "s|^TZ=.*$|TZ=$(cat /etc/timezone)|" $BUILD_ACORE_DIR/.env 2>/dev/null || sed -i "s|^TZ=.*$|TZ=$(cat /etc/timezone)|" $BUILD_ACORE_DIR/.env 2>/dev/null || true
@@ -66,6 +69,7 @@ function init_acore_module() {
         fi
     done
 
+    # 替换 ale脚本目录
     sed -i 's|ALE.ScriptPath = "lua_scripts"|ALE.ScriptPath = "/azerothcore/lua_scripts/"|g' "${WOTLK_ETC_MODULES_DIR}/mod_ale.conf"
 }
 
@@ -84,7 +88,7 @@ function fix_permissions(){
 
 function build_container() {
     fix_permissions
-    docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d --build
+    docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d
 }
 
 function set_realmlist(){

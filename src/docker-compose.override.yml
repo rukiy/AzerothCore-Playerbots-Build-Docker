@@ -2,6 +2,8 @@ services:
   ac-database:
     environment:
       TZ: ${TZ}
+    volumes:
+      - ${DOCKER_VOL_DB_CNF}:/etc/mysql/conf.d
   ac-db-import:
     environment:
       TZ: ${TZ}
