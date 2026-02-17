@@ -46,36 +46,6 @@ function build() {
 }
 
 # ============================================
-# 函数: uninstall
-# 功能: 完全卸载服务，删除容器和运行数据
-# ============================================
-function uninstall() {
-    echo "开始卸载流程..."
-
-    # 检查必要的环境变量
-    if [ -z "$BUILD_ACORE_DIR" ] || [ -z "$WOTLK_DIR" ]; then
-        echo "错误: 未设置必要的环境变量" >&2
-        return 1
-    fi
-
-    # 1. 停止并删除Docker容器
-    echo "停止并删除Docker容器..."
-    docker compose -f "$BUILD_ACORE_DIR/docker-compose.yml" \
-                   -f "$BUILD_ACORE_DIR/docker-compose.override.yml" \
-                   down --rmi local
-
-    # 2. 删除运行数据目录
-    if [ -d "$WOTLK_DIR" ]; then
-        echo "删除运行数据: $WOTLK_DIR"
-        rm -rf "$WOTLK_DIR"
-    else
-        echo "运行目录 $WOTLK_DIR 不存在，无需删除"
-    fi
-
-    echo "卸载完成！"
-}
-
-# ============================================
 # 函数: toggle
 # 功能: 切换服务状态
 #     如果所有容器都在运行，则全部停止
