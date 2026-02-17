@@ -53,6 +53,7 @@ EOF
     echo "包含 $count 个去重后的条目"
     
     cp "$OUTPUT_SQL" "$EXTRA_COPY_PATH"
+    rm "$OUTPUT_SQL"
     echo "已拷贝到：$EXTRA_COPY_PATH"
   
 }

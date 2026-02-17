@@ -88,7 +88,7 @@ function fix_permissions(){
 
 function build_container() {
     fix_permissions
-    docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d
+    docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml --compatibility up -d --build
 }
 
 function set_realmlist(){

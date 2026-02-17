@@ -1,3 +1,4 @@
+[mysqld]
 # ========== 内存核心配置 ==========
 innodb_buffer_pool_size = 3G
 

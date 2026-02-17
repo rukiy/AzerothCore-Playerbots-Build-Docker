@@ -8,10 +8,15 @@ if [ "$(id -u)" != 0 ]; then
 fi
 
 install() {
+    clean
     build
 }
 
-updown() {
+update() {    
+    build
+}
+
+auto() {
     containers=("ac-worldserver" "ac-authserver" "ac-database")
     all_running=true
     for container in "${containers[@]}"; do
@@ -36,16 +41,17 @@ ps() {
 
 clean() {
     docker compose -f $BUILD_ACORE_DIR/docker-compose.yml -f $BUILD_ACORE_DIR/docker-compose.override.yml down --rmi local
+    echo "删除运行数据: $WOTLK_DIR"
 	rm -rf $WOTLK_DIR
 }
 
 case "$1" in
-	install|updown|ps|clean)
+	install|update|auto|ps|clean)
 		"$1"
 		;;
 
 	*)
-		echo "Usage $0 {install|updown|ps|clean}"
+		echo "Usage $0 {install|update|auto|ps|clean}"
 		exit 1
 		;;
 esac
