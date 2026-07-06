@@ -4,7 +4,7 @@ readonly PLAYERBOTS_SQL_CUSTOM_PATH="$BUILD_ACORE_MOD_DIR/mod-playerbots/data/sq
 
 
 playerbots_names() {
-    mkdir -p $PLAYERBOTS_SQL_CUSTOM_PATH
+    mkdir -p "$PLAYERBOTS_SQL_CUSTOM_PATH"
     # 替换playerbots_names表中的名字
     generate_playerbots_names_sql
     # 替换playerbots_guild_names表中的名字
@@ -22,7 +22,7 @@ playerbots_names_custom_handler() {
     local NAME="$1"
     local OUTPUT_SQL="$2"
     local gender=$((RANDOM % 2))  # 随机分配性别：0或1
-    echo "($playerbots_name_id,'$NAME',$gender)," >> "$OUTPUT_SQL"
+    echo "($playerbots_name_id,'$(sql_escape "$NAME")',$gender)," >> "$OUTPUT_SQL"
     playerbots_name_id=$((playerbots_name_id + 1))
 }
 
@@ -43,7 +43,7 @@ generate_playerbots_names_sql() {
 playerbots_guild_names_custom_handler() {
     local GUILD_NAME="$1"
     local OUTPUT_SQL="$2"
-    echo "(NULL, '$GUILD_NAME')," >> "$OUTPUT_SQL"
+    echo "(NULL, '$(sql_escape "$GUILD_NAME")')," >> "$OUTPUT_SQL"
 }
 
 generate_playerbots_guild_names_sql() {
@@ -63,10 +63,10 @@ playerbots_arena_team_names_custom_handler() {
     local OUTPUT_SQL="$2"
 
     # 随机选择一个数字
-    numbers=(1 2 3 5)
-    random_index=$((RANDOM % ${#numbers[@]}))
+    local numbers=(1 2 3 5)
+    local random_index=$((RANDOM % ${#numbers[@]}))
     local type=${numbers[$random_index]}
-    echo "(NULL,'$name',$type)," >> "$OUTPUT_SQL"
+    echo "(NULL,'$(sql_escape "$name")',$type)," >> "$OUTPUT_SQL"
 }
 
 playerbots_arena_team_names_sql() {
@@ -103,7 +103,7 @@ generate_playerbots_custom_sql() {
     fi
     
     # 创建SQL目录
-    mkdir -p "$BUILD_SQL_DIR"    
+    mkdir -p "$BUILD_SQL_DIR"
     # 开始生成SQL文件
     cat > "$OUTPUT_SQL" << EOF
 -- Delete all existing $TABLE_NAME
@@ -116,11 +116,11 @@ EOF
     # 读取字典文件，去重并生成INSERT语句
     # 使用进程替换避免子shell问题
     local count=0
-    while read -r ITEM; do
+    while IFS= read -r ITEM; do
         # 强制使用自定义处理函数
         $CUSTOM_HANDLER "$ITEM" "$OUTPUT_SQL"
         count=$((count + 1))
-    done < <(uniq "$DICT_FILE")
+    done < <(sort -u "$DICT_FILE")
     
     # 移除最后一行的逗号
     sed -i '$s/,$//' "$OUTPUT_SQL"

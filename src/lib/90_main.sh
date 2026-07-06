@@ -20,28 +20,31 @@ set -e
 function build() {
     echo "开始构建流程..."
 
-    # 1. 初始化环境 (根据参数决定是否清理旧数据)
+    # 1. 初始化运行目录 (只有显式传 1 时才清理旧数据)
     initialize "$1"
 
-    # 2. 构建客户端相关组件
+    # 2. 检查环境并预拉镜像
+    prepare_build_environment
+
+    # 3. 构建客户端相关组件
     client
 
-    # 3. 构建AzerothCore核心
+    # 4. 构建AzerothCore核心
     azerothcore
 
-    # 4. 构建模块
+    # 5. 构建模块
     module
 
-    # 5. 执行额外配置
+    # 6. 执行额外配置
     extra
 
-    # 6. 配置容器
+    # 7. 配置容器
     container
 
-    # 7. 配置数据库
+    # 8. 配置数据库
     database
 
-    # 8. 显示完成信息
+    # 9. 显示完成信息
     printinfo
 }
 
@@ -79,7 +82,14 @@ function toggle() {
         echo "所有容器已停止"
     else
         echo "检测到有容器未运行，正在启动所有容器..."
-        docker start "${containers[@]}"
+        prepare_memory_plan
+        print_memory_plan
+        write_managed_env_values "$SRC_DIR/.env"
+        local compose_file_args=()
+        mapfile -t compose_file_args < <(compose_args)
+        docker compose "${compose_file_args[@]}" \
+            --compatibility up -d --no-build --force-recreate \
+            ac-database ac-authserver ac-worldserver
         echo "所有容器已启动"
     fi
 

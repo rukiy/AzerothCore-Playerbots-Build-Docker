@@ -28,11 +28,45 @@ function wlk_clear() {
     # 检查Docker Compose文件是否存在
     if [ -f "$DOCKER_YAML_FILE" ]; then
         # 停止并删除容器、镜像
-        docker compose -f "$DOCKER_YAML_FILE" -f "$BUILD_ACORE_DIR/docker-compose.override.yml" down --rmi local
+        local compose_down_args=()
+        mapfile -t compose_down_args < <(compose_args)
+        docker compose "${compose_down_args[@]}" down --rmi local
     fi
 
     # 删除运行目录及其内容
     echo "删除运行数据: $WOTLK_DIR" && rm -rf "$WOTLK_DIR"
+    clear_docker_artifacts
+    clear_build_dir
+}
+
+clear_docker_artifacts() {
+    local containers images image
+
+    mapfile -t containers < <(docker ps -a --format '{{.Names}}' | awk '/^ac-/ {print}')
+    if [ "${#containers[@]}" -gt 0 ]; then
+        echo "删除容器: ${containers[*]}"
+        docker rm -f "${containers[@]}" >/dev/null 2>&1 || true
+    fi
+
+    mapfile -t images < <(docker images --format '{{.Repository}}:{{.Tag}}' | awk '/^acore\/ac-wotlk-/ {print}')
+    for image in "${DOCKER_BASE_IMAGES[@]}"; do
+        images+=("$image")
+    done
+
+    if [ "${#images[@]}" -gt 0 ]; then
+        echo "删除镜像: ${images[*]}"
+        docker rmi -f "${images[@]}" >/dev/null 2>&1 || true
+    fi
+
+    if docker buildx inspect "$DOCKER_BUILDX_BUILDER_NAME" >/dev/null 2>&1; then
+        echo "删除构建器: $DOCKER_BUILDX_BUILDER_NAME"
+        docker buildx rm "$DOCKER_BUILDX_BUILDER_NAME" >/dev/null 2>&1 || true
+    fi
+}
+
+clear_build_dir() {
+    echo "删除构建数据: $BUILD_DIR"
+    rm -rf "$BUILD_DIR"
 }
 
 # ============================================

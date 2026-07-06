@@ -1,21 +1,34 @@
 services:
   ac-database:
+    mem_limit: ${AC_DATABASE_MEMORY_LIMIT}
     environment:
       TZ: ${TZ}
     volumes:
       - ${DOCKER_VOL_DB_CNF}:/etc/mysql/conf.d
   ac-db-import:
+    mem_limit: ${AC_DATABASE_MEMORY_LIMIT}
+    build:
+      dockerfile: ${AC_RUNTIME_DOCKERFILE}
     environment:
       TZ: ${TZ}
   ac-worldserver:
+    mem_limit: ${AC_WORLDSERVER_MEMORY_LIMIT}
+    build:
+      dockerfile: ${AC_RUNTIME_DOCKERFILE}
     environment:
       TZ: ${TZ}
     volumes:
       - ./modules:/azerothcore/modules:rw
       - ${WOTLK_LUA_SCRIPT_DIR}:/azerothcore/lua_scripts:rw
   ac-authserver:
+    mem_limit: ${AC_AUTHSERVER_MEMORY_LIMIT}
+    build:
+      dockerfile: ${AC_RUNTIME_DOCKERFILE}
     environment:
       TZ: ${TZ}
   ac-client-data-init:
+    mem_limit: 512m
+    build:
+      dockerfile: ${AC_RUNTIME_DOCKERFILE}
     networks:
       - ac-network
