@@ -3,12 +3,23 @@
 set -e
 
 
-function database() {
-    realmlist
-    customsql
+function configure_database() {
+    ensure_databases
+    configure_realmlist
+    run_custom_sql
 }
 
-function realmlist(){
+function ensure_databases() {
+    local db_name
+
+    for db_name in "${WOTLK_DB_NAMES[@]}"; do
+        echo "确保数据库存在: $db_name"
+        docker exec -e MYSQL_PWD="${DOCKER_DB_ROOT_PASSWORD:-}" ac-database \
+            mysql -u root -e "CREATE DATABASE IF NOT EXISTS \`$db_name\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    done
+}
+
+function configure_realmlist(){
     # 获取 realmlist address
     realmListServer
     # 更新到数据库
@@ -16,7 +27,7 @@ function realmlist(){
     execute_sql "acore_auth" "SELECT id, name, address, localAddress FROM realmlist;"
 }
 
-function customsql(){
+function run_custom_sql(){
     for WOTLK_DB_NAME in "${WOTLK_DB_NAMES[@]}"; do
         local sql_files=("$WOTLK_SQL_DIR/$WOTLK_DB_NAME"/*.sql)
         execute_sql_files "$WOTLK_DB_NAME" "${sql_files[@]}"

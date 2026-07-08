@@ -1,33 +1,59 @@
 services:
   ac-database:
     mem_limit: ${AC_DATABASE_MEMORY_LIMIT}
+    deploy:
+      resources:
+        limits:
+          memory: ${AC_DATABASE_MEMORY_LIMIT}
     environment:
       TZ: ${TZ}
     volumes:
       - ${DOCKER_VOL_DB_CNF}:/etc/mysql/conf.d
   ac-db-import:
     mem_limit: ${AC_DATABASE_MEMORY_LIMIT}
+    deploy:
+      resources:
+        limits:
+          memory: ${AC_DATABASE_MEMORY_LIMIT}
     build:
       dockerfile: ${AC_RUNTIME_DOCKERFILE}
     environment:
       TZ: ${TZ}
   ac-worldserver:
     mem_limit: ${AC_WORLDSERVER_MEMORY_LIMIT}
+    deploy:
+      resources:
+        limits:
+          memory: ${AC_WORLDSERVER_MEMORY_LIMIT}
     build:
       dockerfile: ${AC_RUNTIME_DOCKERFILE}
     environment:
       TZ: ${TZ}
+      AC_PROCESS_PRIORITY: "0"
+      AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT: "100"
+      AC_AI_PLAYERBOT_ADD_CLASS_ACCOUNT_POOL_SIZE: "0"
+      AC_AI_PLAYERBOT_RANDOM_BOT_ARENA_TEAM_2V_2_COUNT: "0"
+      AC_AI_PLAYERBOT_RANDOM_BOT_ARENA_TEAM_3V_3_COUNT: "0"
+      AC_AI_PLAYERBOT_RANDOM_BOT_ARENA_TEAM_5V_5_COUNT: "0"
     volumes:
       - ./modules:/azerothcore/modules:rw
       - ${WOTLK_LUA_SCRIPT_DIR}:/azerothcore/lua_scripts:rw
   ac-authserver:
     mem_limit: ${AC_AUTHSERVER_MEMORY_LIMIT}
+    deploy:
+      resources:
+        limits:
+          memory: ${AC_AUTHSERVER_MEMORY_LIMIT}
     build:
       dockerfile: ${AC_RUNTIME_DOCKERFILE}
     environment:
       TZ: ${TZ}
   ac-client-data-init:
-    mem_limit: 512m
+    mem_limit: ${AC_CLIENT_DATA_INIT_MEMORY_LIMIT}
+    deploy:
+      resources:
+        limits:
+          memory: ${AC_CLIENT_DATA_INIT_MEMORY_LIMIT}
     build:
       dockerfile: ${AC_RUNTIME_DOCKERFILE}
     networks:

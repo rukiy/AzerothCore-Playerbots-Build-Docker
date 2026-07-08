@@ -2,7 +2,7 @@
 
 set -e
 
-function module() {
+function configure_modules() {
 
     local _world="data/sql/db-world"
     local _chars="data/sql/db-characters"
@@ -12,13 +12,13 @@ function module() {
     local chars="data/sql/characters"
     local auth="data/sql/auth"
 
-    for GIT_ACORE_MODULE_URL in "${GIT_ACORE_MODULE_URLS[@]}"; do
+    for ACORE_MODULE_REPO in "${ACORE_MODULE_REPOS[@]}"; do
         local mod_name
-        mod_name="$(basename -s .git "$GIT_ACORE_MODULE_URL")"
+        mod_name="$(source_repo_name "$ACORE_MODULE_REPO")"
         local mod_dir="$BUILD_ACORE_MOD_DIR/$mod_name"
 
-        if ! gitClone "$GIT_ACORE_MODULE_URL" "" "$mod_dir"; then
-            echo "错误: 模块 $mod_name 初始化失败，脚本已终止" >&2
+        if [ ! -d "$mod_dir" ]; then
+            echo "错误: 模块源码目录不存在: $mod_dir" >&2
             exit 1
         fi
 
@@ -45,6 +45,12 @@ function module() {
     fi
 
     patch_autobalance_compatibility
+    configure_playerbots_names
+}
+
+configure_playerbots_names() {
+    # 中文化 playerbots 名字相关表
+    playerbots_names
 }
 
 patch_autobalance_compatibility() {

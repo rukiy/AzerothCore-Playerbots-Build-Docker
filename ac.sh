@@ -43,17 +43,21 @@ update() {
 }
 
 uninstall(){
-    wlk_clear
+    uninstall_all
+}
+
+mirrors(){
+    probe_mirrors_only
 }
 
 case "$1" in
-	install|update|toggle|uninstall)
+	install|update|toggle|uninstall|mirrors)
         setup_logging "$1"
 		"$1"
 		;;
 
 	*)
-		echo "用法：$0 {install|update|toggle|uninstall}"
+		echo "用法：$0 {install|update|toggle|uninstall|mirrors}"
 		exit 1
 		;;
 esac

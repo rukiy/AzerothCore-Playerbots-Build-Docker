@@ -2,11 +2,12 @@
 
 set -e
 
-function azerothcore() {
-    if ! gitClone "$GIT_ACORE_URL" "$GIT_ACORE_BRANCH" "$BUILD_ACORE_DIR"; then
-        echo "错误: AzerothCore 仓库初始化失败，脚本已终止" >&2
+function configure_core() {
+    if [ ! -d "$BUILD_ACORE_DIR" ]; then
+        echo "错误: AzerothCore 源码目录不存在: $BUILD_ACORE_DIR" >&2
         exit 1
     fi
+
     cp "$SRC_DIR/conf.d"/*.cnf "$WOTLK_DATABASE_MYSQL_CNF/"
     write_mysql_memory_config "$WOTLK_DATABASE_MYSQL_CNF/performance.cnf"
     chmod 644 "$WOTLK_DATABASE_MYSQL_CNF"/*.cnf
@@ -78,7 +79,42 @@ configure_dockerfile_mirror() {
         }
     ' "$source_dockerfile" > "$tmp_file"
 
-    perl -0pi -e 's/\Q-j $(($(nproc) + 1))\E/-j '"${DOCKER_BUILD_PARALLEL_JOBS}"'/g' "$tmp_file"
+    rewrite_runtime_dockerfile_build_steps "$tmp_file"
 
     mv "$tmp_file" "$output_dockerfile"
+}
+
+rewrite_runtime_dockerfile_build_steps() {
+    local dockerfile="$1"
+    local tmp_file
+
+    tmp_file="$(mktemp)"
+    awk -v jobs="$DOCKER_BUILD_PARALLEL_JOBS" '
+        function replace_build_jobs(line, needle, pos) {
+            needle = "-j $(($(nproc) + 1))"
+            while ((pos = index(line, needle)) > 0) {
+                line = substr(line, 1, pos - 1) "-j " jobs substr(line, pos + length(needle))
+            }
+            return line
+        }
+
+        /^[[:space:]]*# This may seem silly/ {
+            skip_git_context = 1
+            next
+        }
+
+        skip_git_context {
+            if ($0 ~ /^[[:space:]]*&&[[:space:]]+cmake[[:space:]]+\/azerothcore[[:space:]]*\\/) {
+                sub(/^[[:space:]]*&&[[:space:]]*/, "    ", $0)
+                skip_git_context = 0
+                print replace_build_jobs($0)
+            }
+            next
+        }
+
+        {
+            print replace_build_jobs($0)
+        }
+    ' "$dockerfile" > "$tmp_file"
+    mv "$tmp_file" "$dockerfile"
 }

@@ -1,14 +1,261 @@
-# AzerothCore + Playerbots + Docker Compose 编译运行
+# AzerothCore + Playerbots Docker 安装脚本
 
-## 命令
+[![Shell](https://img.shields.io/badge/Shell-Bash-1f425f)](#)
+[![Docker](https://img.shields.io/badge/Docker-Compose%20%2B%20Buildx-2496ed)](#)
+[![AzerothCore](https://img.shields.io/badge/Core-AzerothCore%20WotLK-6f42c1)](#)
+[![Playerbots](https://img.shields.io/badge/Module-Playerbots-0f766e)](#)
 
-```shell
-# 安装(删除运行数据)
+这个项目面向想快速部署 AzerothCore WotLK + Playerbots 的 Linux 服务器用户。
+
+执行脚本后，它会自动准备服务端源码、Playerbots 模块、客户端数据和 Docker 基础镜像，并通过 Docker Compose 完成构建、数据库初始化和服务启动。
+
+适合想快速搭建自用 WotLK 服务端、减少手工配置步骤，并在安装过程中自动处理国内网络加速和内存规划的场景。
+
+## 使用方法
+
+需要 root 权限执行：
+
+```bash
 ./ac.sh install
-# 更新(保留运行数据)
+```
+
+常用命令：
+
+```bash
+# 安装或重新构建
+./ac.sh install
+
+# 更新并重新构建，保留运行数据
 ./ac.sh update
-# 启动或停止
+
+# 启动或停止数据库、认证服、世界服
 ./ac.sh toggle
-# 清理运行数据(容器,数据库和配置文件全部清除)
+
+# 单独检测 GitHub 和 Docker 加速源
+./ac.sh mirrors
+
+# 卸载安装产生的容器、镜像、构建目录和运行目录
 ./ac.sh uninstall
 ```
+
+命令说明：
+
+| 命令 | 说明 |
+| --- | --- |
+| `install` | 检查环境，准备下载缓存，规划内存，构建并启动服务 |
+| `update` | 重新准备源码和构建目录，保留运行数据 |
+| `toggle` | 启动或停止 `ac-database`、`ac-authserver`、`ac-worldserver` |
+| `mirrors` | 手动检测加速源并写入 `downloads/mirror-preferences.env` |
+| `uninstall` | 删除安装产生的容器、镜像、`build/`、`wotlk/`，不删除 `downloads/` |
+
+安装完成后，可以进入 worldserver 控制台创建账号：
+
+```bash
+docker attach ac-worldserver
+```
+
+在控制台中执行：
+
+```text
+account create 用户名 密码
+account set gmlevel 用户名 3 -1
+```
+
+退出控制台：
+
+```text
+Ctrl+p Ctrl+q
+```
+
+客户端 `realmlist.wtf` 配置为服务器地址：
+
+```text
+set realmlist 你的服务器地址
+```
+
+## 配置说明
+
+主要配置文件有两个：
+
+| 文件 | 说明 |
+| --- | --- |
+| `ac.conf` | 服务器地址、源码仓库、模块列表、下载缓存、Docker 镜像、内存、日志 |
+| `mirrors.conf` | Ubuntu、GitHub、Docker 加速源 |
+
+### ac.conf
+
+服务器地址：
+
+```bash
+# 客户端登录后看到的服务器名称，留空默认 Azeroth。
+REALMLIST_NAME=
+
+# 客户端连接服务器使用的公网 IP 或域名，留空自动取本机内网 IP。
+REALMLIST_ADDRESS=
+
+# 局域网访问地址，留空自动取本机内网 IP。
+REALMLIST_LOCAL_ADDRESS=
+```
+
+客户端数据：
+
+```bash
+# latest 表示自动解析 wowgaming/client-data 最新 release。
+CLIENT_DATA_VERSION="latest"
+
+# 自定义客户端数据包下载地址，留空时自动拼接 GitHub Release 地址。
+CLIENT_DATA_DOWNLOAD_URL=
+```
+
+下载缓存：
+
+```bash
+# 下载缓存目录，uninstall 不删除。
+AC_DOWNLOAD_DIR="downloads"
+
+# 上次成功的镜像源记录文件。
+AC_MIRROR_STATE_FILE="downloads/mirror-preferences.env"
+
+# 是否启用 Docker 镜像 tar 缓存。
+AC_DOCKER_IMAGE_ARCHIVE_CACHE=1
+```
+
+源码仓库：
+
+```bash
+# 主源码仓库，格式为 owner/repo。
+ACORE_SOURCE_REPO="liyunfan1223/azerothcore-wotlk"
+
+# 主源码分支。
+ACORE_SOURCE_BRANCH="Playerbot"
+
+# 模块仓库列表，格式为 owner/repo。
+ACORE_MODULE_REPOS=(
+    liyunfan1223/mod-playerbots
+    DustinHendrickson/mod-player-bot-level-brackets
+    azerothcore/mod-aoe-loot
+)
+```
+
+Docker 镜像：
+
+```bash
+DOCKER_BASE_IMAGES=(
+    "ubuntu:24.04"
+    "mysql:8.4"
+    "moby/buildkit:buildx-stable-1"
+)
+
+DOCKER_BUILDX_BUILDER_NAME="acore-builder"
+DOCKER_BUILDKIT_IMAGE="moby/buildkit:buildx-stable-1"
+
+# Docker 加速源检测用的小镜像，检测成功后会删除。
+DOCKER_MIRROR_PROBE_IMAGE="hello-world:latest"
+DOCKER_MIRROR_PROBE_TIMEOUT=5
+```
+
+内存配置：
+
+```bash
+# 1=自动规划。
+AC_MEMORY_AUTO=1
+
+# 留空时按“当前系统已用内存 + 512MB”保留。
+AC_MEMORY_RESERVED_MB=
+AC_MEMORY_DYNAMIC_RESERVED_EXTRA_MB=512
+
+# 留空时自动规划。
+DOCKER_BUILD_MEMORY_LIMIT=
+DOCKER_BUILD_PARALLEL_JOBS=
+AC_DATABASE_MEMORY_LIMIT=
+AC_WORLDSERVER_MEMORY_LIMIT=
+AC_AUTHSERVER_MEMORY_LIMIT=
+AC_CLIENT_DATA_INIT_MEMORY_LIMIT=
+AC_DATABASE_INNODB_BUFFER_POOL_SIZE=
+```
+
+日志配置：
+
+```bash
+AC_LOG_DIR="build/logs"
+AC_LOG_FILE="build/logs/ac.log"
+AC_DOWNLOAD_LOG_FILE="build/logs/downloads.log"
+AC_MIRROR_LOG_FILE="build/logs/mirrors.log"
+```
+
+### mirrors.conf
+
+Ubuntu apt 镜像：
+
+```bash
+UBUNTU_MIRROR="mirrors.aliyun.com"
+```
+
+GitHub Release 文件下载代理：
+
+```bash
+GITHUB_RELEASE_ASSET_MIRRORS=(
+    "https://gh-proxy.com/"
+    "https://gh.llkk.cc/"
+    "https://gh.idayer.com/"
+    "https://ghproxy.net/"
+)
+```
+
+GitHub Release latest 解析代理：
+
+```bash
+GITHUB_RELEASE_LATEST_MIRRORS=(
+    "https://gh.idayer.com/"
+    "https://gh-proxy.com/"
+    "https://gh.llkk.cc/"
+)
+```
+
+GitHub 源码压缩包代理：
+
+```bash
+GITHUB_SOURCE_ARCHIVE_MIRRORS=(
+    "https://gh-proxy.com/"
+    "https://gh.llkk.cc/"
+    "https://gh.idayer.com/"
+)
+```
+
+Docker 镜像拉取加速源：
+
+```bash
+DOCKER_IMAGE_PULL_MIRRORS=(
+    "docker.m.daocloud.io"
+    "docker.1ms.run"
+    "docker.xuanyuan.me"
+    "dockerproxy.net"
+    "docker.chenby.cn"
+)
+```
+
+## 主要逻辑
+
+`install` 和 `update` 的执行顺序：
+
+1. 检查 Docker 服务和必要命令。
+2. 检查 `downloads/` 中是否已有源码包、客户端数据包和 Docker 镜像缓存。
+3. 缓存缺失时检测可用加速源。
+4. 下载或复用源码包、模块包、客户端数据包、Docker 镜像 tar。
+5. 根据当前系统内存自动规划构建和运行内存。
+6. 初始化 `build/` 和 `wotlk/`。
+7. 解压源码和模块到 `build/azerothcore-wotlk`。
+8. 生成构建用 Dockerfile 和 BuildKit 配置。
+9. 使用 Docker Compose 构建并启动服务。
+10. 初始化数据库并写入 realmlist 配置。
+
+目录说明：
+
+| 路径 | 说明 |
+| --- | --- |
+| `downloads/` | 下载缓存，`uninstall` 不删除 |
+| `build/` | 构建目录和日志，`uninstall` 会删除 |
+| `wotlk/` | 运行数据、数据库、配置和客户端数据，`uninstall` 会删除 |
+| `build/logs/ac.log` | 主日志 |
+| `build/logs/downloads.log` | 下载和缓存日志 |
+| `build/logs/mirrors.log` | 加速源检测日志 |

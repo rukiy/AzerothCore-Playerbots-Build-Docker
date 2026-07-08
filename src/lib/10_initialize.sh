@@ -11,17 +11,17 @@ function initialize() {
     # 检查参数是否非空且等于1
     if [[ -n "$1" && "$1" -eq 1 ]]; then
         # 执行清理操作
-        wlk_clear
+        uninstall_all
     fi
     # 无论是否清理，都执行目录初始化
-    wotlk_dir
+    prepare_workspace_dirs
 }
 
 # ============================================
-# 函数: wlk_clear
+# 函数: uninstall_all
 # 功能: 清理容器和运行数据
 # ============================================
-function wlk_clear() {
+function uninstall_all() {
     # 构建Docker Compose文件路径
     local DOCKER_YAML_FILE="$BUILD_ACORE_DIR/docker-compose.yml"
 
@@ -58,10 +58,7 @@ clear_docker_artifacts() {
         docker rmi -f "${images[@]}" >/dev/null 2>&1 || true
     fi
 
-    if docker buildx inspect "$DOCKER_BUILDX_BUILDER_NAME" >/dev/null 2>&1; then
-        echo "删除构建器: $DOCKER_BUILDX_BUILDER_NAME"
-        docker buildx rm "$DOCKER_BUILDX_BUILDER_NAME" >/dev/null 2>&1 || true
-    fi
+    remove_build_builder
 }
 
 clear_build_dir() {
@@ -70,10 +67,13 @@ clear_build_dir() {
 }
 
 # ============================================
-# 函数: wotlk_dir
+# 函数: prepare_workspace_dirs
 # 功能: 创建WOTLK相关的目录结构
 # ============================================
-function wotlk_dir() {
+function prepare_workspace_dirs() {
+    # 创建构建目录
+    mkdir -p "$BUILD_DIR"
+
     # 创建配置目录
     mkdir -p "$WOTLK_ETC_DIR"
     mkdir -p "$WOTLK_ETC_MODULES_DIR"
@@ -95,4 +95,49 @@ function wotlk_dir() {
 
     # 创建客户端数据目录
     mkdir -p "$WOTLK_CLIENT_DATA_DIR"
+}
+
+install_client_data() {
+    local version
+    local path="$WOTLK_CLIENT_DATA_DIR"
+    local zip_path
+    local dbc_zh_zip_path="$SRC_DATA_DBC_ZIPFILE"
+    local data_version_file="$path/data-version"
+    local installed_version=""
+
+    resolve_client_data_version
+    version="$AC_CLIENT_DATA_RESOLVED_VERSION"
+    zip_path="$(client_data_archive_file)"
+
+    if [ -f "$data_version_file" ]; then
+        installed_version="$(sed -n 's/^INSTALLED_VERSION=//p' "$data_version_file" | head -n 1)"
+    fi
+
+    if [ "$version" = "$installed_version" ]; then
+        echo "客户端数据 $version 已存在: $data_version_file"
+        return 0
+    fi
+
+    if [ ! -f "$zip_path" ]; then
+        echo "错误: 客户端数据包不存在: $zip_path" >&2
+        return 1
+    fi
+
+    echo "清理旧客户端数据: $path"
+    rm -rf "$path"/*
+
+    echo "解压客户端数据到: $path"
+    if ! unzip -q -o "$zip_path" -d "$path/"; then
+        echo "错误: 客户端数据解压失败" >&2
+        return 1
+    fi
+
+    echo "解压中文 dbc 数据到: $path/dbc"
+    if ! unzip -q -o "$dbc_zh_zip_path" -d "$path/dbc"; then
+        echo "错误: 中文 dbc 数据解压失败" >&2
+        return 1
+    fi
+
+    echo "INSTALLED_VERSION=$version" > "$data_version_file"
+    echo "客户端数据 $version 安装完成"
 }

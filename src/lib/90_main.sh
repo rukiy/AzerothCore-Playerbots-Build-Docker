@@ -19,32 +19,40 @@ set -e
 # ============================================
 function build() {
     echo "开始构建流程..."
+    trap remove_build_builder EXIT
 
-    # 1. 初始化运行目录 (只有显式传 1 时才清理旧数据)
+    # 1. 检查环境，下载源码压缩包和 Docker 镜像
+    prepare_downloads
+
+    # 2. 内存规划
+    prepare_memory_plan
+    print_memory_plan
+
+    # 3. 初始化运行目录和构建目录
     initialize "$1"
 
-    # 2. 检查环境并预拉镜像
-    prepare_build_environment
+    # 4. 解压源码到构建目录
+    install_source_archives
 
-    # 3. 构建客户端相关组件
-    client
+    # 5. 解压客户端数据
+    install_client_data
 
-    # 4. 构建AzerothCore核心
-    azerothcore
+    # 6. 配置 AzerothCore 核心
+    configure_core
 
-    # 5. 构建模块
-    module
+    # 7. 配置模块
+    configure_modules
 
-    # 6. 执行额外配置
-    extra
+    # 8. 准备构建器
+    prepare_build_tools
 
-    # 7. 配置容器
-    container
+    # 9. 构建并启动容器
+    build_and_start_containers
 
-    # 8. 配置数据库
-    database
+    # 10. 配置数据库
+    configure_database
 
-    # 9. 显示完成信息
+    # 11. 显示完成信息
     printinfo
 }
 
