@@ -16,6 +16,24 @@
 需要 root 权限执行：
 
 ```bash
+bash <(wget -qO- https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
+```
+
+这条命令会把项目下载到 `/data/acore`，然后自动执行安装。也可以指定安装目录：
+
+```bash
+AC_INSTALL_DIR=/opt/acore bash <(wget -qO- https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
+```
+
+如果服务器没有 `wget`，也可以使用 `curl`：
+
+```bash
+bash <(curl -fsSL https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
+```
+
+如果已经下载好项目，也可以在项目目录中执行：
+
+```bash
 ./ac.sh install
 ```
 
