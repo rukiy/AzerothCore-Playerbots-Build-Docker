@@ -19,7 +19,7 @@
 bash <(wget -qO- https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
 ```
 
-这条命令会把项目下载到 `/data/acore`，然后自动执行安装。也可以指定安装目录：
+这条命令会把项目下载到当前用户的 `~/acore`，然后自动执行安装。也可以指定安装目录：
 
 ```bash
 AC_INSTALL_DIR=/opt/acore bash <(wget -qO- https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)

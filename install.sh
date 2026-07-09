@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-AC_INSTALL_DIR="${AC_INSTALL_DIR:-/data/acore}"
+AC_INSTALL_DIR="${AC_INSTALL_DIR:-$HOME/acore}"
 AC_INSTALL_BRANCH="${AC_INSTALL_BRANCH:-main}"
 AC_INSTALL_REPO="${AC_INSTALL_REPO:-rukiy/AzerothCore-Playerbots-Build-Docker}"
 AC_INSTALL_TMP_DIR="${AC_INSTALL_TMP_DIR:-/tmp/acore-installer}"
