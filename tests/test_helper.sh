@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -11,16 +11,18 @@ fail() {
 assert_eq() {
     local expected="$1"
     local actual="$2"
-    [ "$expected" = "$actual" ] || fail "期望 [$expected]，实际 [$actual]"
+    local message="$3"
+    [ "$expected" = "$actual" ] || fail "$message：期望 [$expected]，实际 [$actual]"
 }
 
 assert_contains() {
-    local haystack="$1"
-    local needle="$2"
-    [[ "$haystack" == *"$needle"* ]] || fail "[$haystack] 不包含 [$needle]"
+    local text="$1"
+    local expected="$2"
+    local message="$3"
+    [[ "$text" == *"$expected"* ]] || fail "$message：[$text] 不包含 [$expected]"
 }
 
 load_installer() {
-    # 测试调用方需自行设置环境变量，避免加载时触发真实安装。
+    # 仅供已确认入口安全后的函数级测试全局加载；source 安全测试必须使用独立子进程。
     source "$ROOT_DIR/install.sh"
 }
