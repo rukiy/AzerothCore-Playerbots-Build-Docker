@@ -138,4 +138,6 @@ main() {
     ./ac.sh install
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
