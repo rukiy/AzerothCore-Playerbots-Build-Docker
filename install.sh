@@ -4,7 +4,8 @@ set -e
 AC_INSTALL_DIR="${AC_INSTALL_DIR:-$HOME/acore}"
 AC_INSTALL_BRANCH="${AC_INSTALL_BRANCH:-main}"
 AC_INSTALL_REPO="${AC_INSTALL_REPO:-rukiy/AzerothCore-Playerbots-Build-Docker}"
-AC_INSTALL_TMP_DIR="${AC_INSTALL_TMP_DIR:-/tmp/acore-installer}"
+AC_INSTALL_TMP_DIR="${AC_INSTALL_TMP_DIR:-}"
+AC_INSTALL_TMP_DIR_CREATED=""
 AC_OS_RELEASE_FILE="${AC_OS_RELEASE_FILE:-/etc/os-release}"
 AC_OS_ID="${AC_OS_ID:-}"
 AC_OS_VERSION_ID="${AC_OS_VERSION_ID:-}"
@@ -274,6 +275,67 @@ check_docker_environment() {
     fi
 }
 
+validate_install_dir() {
+    local requested="$1"
+    local normalized
+
+    case "$requested" in
+        /*) ;;
+        *)
+            echo "错误：安装目录必须是绝对路径: $requested" >&2
+            return 1
+            ;;
+    esac
+
+    if [ -L "$requested" ]; then
+        echo "错误：安装目录已存在: $requested" >&2
+        return 1
+    fi
+
+    normalized="$(realpath -m -- "$requested")" || return 1
+    case "$normalized" in
+        /|/root|/home|/usr|/var|/etc|/tmp)
+            echo "错误：安装目录不安全: $normalized" >&2
+            return 1
+            ;;
+    esac
+
+    if [ -e "$normalized" ] || [ -L "$normalized" ]; then
+        echo "错误：安装目录已存在: $normalized" >&2
+        return 1
+    fi
+
+    printf '%s\n' "$normalized"
+}
+
+create_install_temp_dir() {
+    local install_dir="$1"
+    local parent_dir
+    local created_dir
+
+    parent_dir="$(dirname -- "$install_dir")"
+    mkdir -p -- "$parent_dir"
+    created_dir="$(mktemp -d "$parent_dir/.acore-installer.XXXXXX")"
+    AC_INSTALL_TMP_DIR="$created_dir"
+    AC_INSTALL_TMP_DIR_CREATED="$created_dir"
+}
+
+cleanup_install_temp_dir() {
+    local created_dir="${AC_INSTALL_TMP_DIR_CREATED:-}"
+    local created_name
+
+    AC_INSTALL_TMP_DIR=""
+    AC_INSTALL_TMP_DIR_CREATED=""
+    [ -n "$created_dir" ] || return 0
+    [ "$created_dir" != "/" ] || return 0
+    [ "$created_dir" != "$(dirname -- "$created_dir")" ] || return 0
+    [ -d "$created_dir" ] || return 0
+
+    created_name="$(basename -- "$created_dir")"
+    [[ "$created_name" =~ ^\.acore-installer\.[[:alnum:]]{6}$ ]] || return 0
+    rm -rf -- "$created_dir"
+}
+
 fetch_url() {
     local url="$1"
     local output_file="$2"
@@ -323,7 +385,6 @@ extract_archive() {
     local archive_file="$1"
     local extract_dir="$2"
     local source_dir
-    local backup_dir
 
     rm -rf "$extract_dir"
     mkdir -p "$extract_dir"
@@ -335,26 +396,13 @@ extract_archive() {
         return 1
     fi
 
-    mkdir -p "$(dirname "$AC_INSTALL_DIR")"
-    case "$AC_INSTALL_DIR" in
-        ""|"/"|"/root"|"/home"|"/usr"|"/var"|"/etc"|"/tmp")
-            echo "错误：安装目录不安全: $AC_INSTALL_DIR" >&2
-            return 1
-            ;;
-    esac
-
-    if [ -e "$AC_INSTALL_DIR" ]; then
-        backup_dir="${AC_INSTALL_DIR}.backup.$(date '+%Y%m%d%H%M%S')"
-        echo "备份已有目录: $AC_INSTALL_DIR -> $backup_dir"
-        mv "$AC_INSTALL_DIR" "$backup_dir"
-    fi
-
-    mv "$source_dir" "$AC_INSTALL_DIR"
+    mv -- "$source_dir" "$AC_INSTALL_DIR"
 }
 
 main() {
-    local archive_file="$AC_INSTALL_TMP_DIR/source.zip"
-    local extract_dir="$AC_INSTALL_TMP_DIR/source"
+    local archive_file
+    local extract_dir
+    local install_dir
 
     if [ "$(id -u)" != 0 ]; then
         echo "错误：必须以 root 权限运行" >&2
@@ -367,7 +415,12 @@ main() {
     fi
     check_bootstrap_commands
     check_docker_environment
-    mkdir -p "$AC_INSTALL_TMP_DIR"
+    install_dir="$(validate_install_dir "$AC_INSTALL_DIR")"
+    AC_INSTALL_DIR="$install_dir"
+    create_install_temp_dir "$AC_INSTALL_DIR"
+    trap cleanup_install_temp_dir EXIT
+    archive_file="$AC_INSTALL_TMP_DIR/source.zip"
+    extract_dir="$AC_INSTALL_TMP_DIR/source"
     download_archive "$archive_file"
     extract_archive "$archive_file" "$extract_dir"
 
