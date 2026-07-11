@@ -78,6 +78,27 @@ set -e
 assert_contains "$missing_output" "无法读取系统信息" "缺少 os-release 时应输出检测失败信息"
 assert_contains "$missing_output" "支持列表" "缺少 os-release 时应输出支持列表"
 
+command_substitution_sentinel="$temp_dir/command-substitution-created"
+backtick_sentinel="$temp_dir/backtick-created"
+standalone_sentinel="$temp_dir/standalone-created"
+cat > "$temp_dir/malicious-os-release" <<EOF
+ID='ubuntu'
+VERSION_ID="22.04"
+NAME=\$(touch "$command_substitution_sentinel")
+PRETTY_NAME=\`touch "$backtick_sentinel"\`
+touch "$standalone_sentinel"
+ID=debian
+VERSION_ID=13
+EOF
+AC_OS_RELEASE_FILE="$temp_dir/malicious-os-release"
+detect_platform
+[ ! -e "$command_substitution_sentinel" ] || fail "不得执行 os-release 中的命令替换"
+[ ! -e "$backtick_sentinel" ] || fail "不得执行 os-release 中的反引号命令"
+[ ! -e "$standalone_sentinel" ] || fail "不得执行 os-release 中的独立命令"
+assert_eq "ubuntu" "$AC_OS_ID" "恶意 os-release 中的首个合法 ID 应被识别"
+assert_eq "22.04" "$AC_OS_VERSION_ID" "恶意 os-release 中的首个合法 VERSION_ID 应被识别"
+assert_eq "apt" "$AC_PACKAGE_MANAGER" "合法平台字段应正常选择包管理器"
+
 create_command_stub() {
     local bin_dir="$1"
     local command_name="$2"

@@ -15,8 +15,10 @@ print_supported_platforms() {
 }
 
 detect_platform() {
-    local ID=""
-    local VERSION_ID=""
+    local line
+    local value
+    local id_found=false
+    local version_found=false
     local major_version
 
     if [ ! -r "$AC_OS_RELEASE_FILE" ]; then
@@ -25,10 +27,37 @@ detect_platform() {
         return 1
     fi
 
-    # os-release 是发行版提供的 shell 变量文件，加载后只复制所需字段。
-    source "$AC_OS_RELEASE_FILE"
-    AC_OS_ID="${ID,,}"
-    AC_OS_VERSION_ID="$VERSION_ID"
+    AC_OS_ID=""
+    AC_OS_VERSION_ID=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            ID=*)
+                [ "$id_found" = false ] || continue
+                value="${line#ID=}"
+                id_found=true
+                ;;
+            VERSION_ID=*)
+                [ "$version_found" = false ] || continue
+                value="${line#VERSION_ID=}"
+                version_found=true
+                ;;
+            *)
+                continue
+                ;;
+        esac
+
+        value="${value%$'\r'}"
+        case "$value" in
+            \"*\"|\'*\')
+                value="${value:1:${#value}-2}"
+                ;;
+        esac
+
+        case "$line" in
+            ID=*) AC_OS_ID="${value,,}" ;;
+            VERSION_ID=*) AC_OS_VERSION_ID="$value" ;;
+        esac
+    done < "$AC_OS_RELEASE_FILE"
     major_version="${AC_OS_VERSION_ID%%.*}"
 
     case "$AC_OS_ID" in
