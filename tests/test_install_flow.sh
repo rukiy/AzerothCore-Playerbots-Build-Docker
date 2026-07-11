@@ -267,6 +267,55 @@ test_parent_security() {
     fi
 }
 
+test_prepare_install_parent_stops_on_unsafe_ancestor() {
+    local ancestor="$temp_dir/unsafe-ancestor"
+    local install="$ancestor/missing/parent/acore"
+    local status
+
+    mkdir -p "$ancestor"
+    chmod 0777 "$ancestor"
+    set +e
+    prepare_install_parent "$install" >/dev/null 2>&1
+    status=$?
+    set -e
+    [ "$status" -ne 0 ] || fail "不安全祖先应使父目录准备失败"
+    [ ! -e "$ancestor/missing" ] || fail "不安全祖先下不得创建缺失父目录"
+}
+
+test_create_install_temp_dir_propagates_failures() {
+    local install="$temp_dir/temp-failure/acore"
+    local original_prepare
+    local status
+
+    original_prepare="$(declare -f prepare_install_parent)"
+    AC_INSTALL_TMP_DIR=""
+    AC_INSTALL_TMP_DIR_CREATED=""
+    prepare_install_parent() { return 41; }
+    set +e
+    create_install_temp_dir "$install"
+    status=$?
+    set -e
+    eval "$original_prepare"
+    assert_eq "41" "$status" "父目录准备失败状态应透传"
+    assert_eq "" "$AC_INSTALL_TMP_DIR" "父目录准备失败不得设置临时目录变量"
+    assert_eq "" "$AC_INSTALL_TMP_DIR_CREATED" "父目录准备失败不得设置临时目录所有权标记"
+    [ ! -e "$temp_dir/temp-failure" ] || fail "父目录准备失败不得创建目录"
+
+    mkdir -p "$temp_dir/temp-failure"
+    AC_INSTALL_TMP_DIR=""
+    AC_INSTALL_TMP_DIR_CREATED=""
+    mktemp() { return 47; }
+    set +e
+    create_install_temp_dir "$install"
+    status=$?
+    set -e
+    unset -f mktemp
+    assert_eq "47" "$status" "mktemp 失败状态应透传"
+    assert_eq "" "$AC_INSTALL_TMP_DIR" "mktemp 失败不得设置临时目录变量"
+    assert_eq "" "$AC_INSTALL_TMP_DIR_CREATED" "mktemp 失败不得设置临时目录所有权标记"
+    assert_eq "0" "$(find "$temp_dir/temp-failure" -mindepth 1 -maxdepth 1 -type d -name '.acore-installer.*' | wc -l | tr -d ' ')" "mktemp 失败不得留下临时目录"
+}
+
 test_partial_install_preserved() {
     local source="$temp_dir/partial-source"
     local install="$temp_dir/partial-install"
@@ -389,6 +438,8 @@ test_fetch_url_atomicity
 test_download_fallback
 test_archive_validation
 test_parent_security
+test_prepare_install_parent_stops_on_unsafe_ancestor
+test_create_install_temp_dir_propagates_failures
 test_partial_install_preserved
 test_main_success_and_status
 assert_race_rejected directory

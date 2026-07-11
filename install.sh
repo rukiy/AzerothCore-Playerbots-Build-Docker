@@ -316,9 +316,9 @@ create_install_temp_dir() {
     local parent_dir
     local created_dir
 
-    parent_dir="$(dirname -- "$install_dir")"
-    prepare_install_parent "$install_dir"
-    created_dir="$(mktemp -d "$parent_dir/.acore-installer.XXXXXX")"
+    parent_dir="$(dirname -- "$install_dir")" || return $?
+    prepare_install_parent "$install_dir" || return $?
+    created_dir="$(mktemp -d "$parent_dir/.acore-installer.XXXXXX")" || return $?
     AC_INSTALL_TMP_DIR="$created_dir"
     AC_INSTALL_TMP_DIR_CREATED="$created_dir"
 }
@@ -350,12 +350,12 @@ validate_install_parent() {
     local install_dir="$1"
     local parent_dir
 
-    parent_dir="$(dirname -- "$install_dir")"
+    parent_dir="$(dirname -- "$install_dir")" || return $?
     parent_dir="$(realpath -e -- "$parent_dir")" || {
         echo "错误：安装父目录不存在: $parent_dir" >&2
         return 1
     }
-    validate_parent_directory "$parent_dir"
+    validate_parent_directory "$parent_dir" || return $?
 }
 
 prepare_install_parent() {
@@ -363,15 +363,15 @@ prepare_install_parent() {
     local parent_dir
     local ancestor
 
-    parent_dir="$(dirname -- "$install_dir")"
+    parent_dir="$(dirname -- "$install_dir")" || return $?
     ancestor="$parent_dir"
     while [ ! -e "$ancestor" ] && [ ! -L "$ancestor" ]; do
-        ancestor="$(dirname -- "$ancestor")"
+        ancestor="$(dirname -- "$ancestor")" || return $?
     done
     ancestor="$(realpath -e -- "$ancestor")" || return 1
-    validate_parent_directory "$ancestor"
+    validate_parent_directory "$ancestor" || return $?
     (umask 077 && mkdir -p -- "$parent_dir") || return $?
-    validate_install_parent "$install_dir"
+    validate_install_parent "$install_dir" || return $?
 }
 
 cleanup_install_temp_dir() {
@@ -396,7 +396,7 @@ fetch_url() {
     local partial_file="${output_file}.part"
     local status
 
-    rm -f -- "$partial_file"
+    rm -f -- "$partial_file" || return $?
 
     if command -v curl >/dev/null 2>&1; then
         if curl -L --fail --connect-timeout 10 --max-time 300 --retry 2 --retry-delay 2 -o "$partial_file" "$url"; then
@@ -584,15 +584,19 @@ PY
 
 claim_install_dir() {
     local install_dir="$1"
+    local status
 
     validate_install_parent "$install_dir" || return $?
     if [ -e "$install_dir" ] || [ -L "$install_dir" ]; then
         echo "错误：安装目录已在校验后出现: $install_dir" >&2
         return 1
     fi
-    if ! mkdir -m 0700 -- "$install_dir"; then
+    if mkdir -m 0700 -- "$install_dir"; then
+        return 0
+    else
+        status=$?
         echo "错误：无法原子声明安装目录: $install_dir" >&2
-        return 1
+        return "$status"
     fi
 }
 
