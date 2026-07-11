@@ -98,7 +98,7 @@ detect_platform() {
 }
 
 bootstrap_command_names() {
-    printf '%s\n' curl wget unzip awk sed find free sha256sum realpath mktemp
+    printf '%s\n' curl wget unzip awk sed find free sha256sum realpath mktemp python3
 }
 
 ca_certificates_available() {
@@ -147,6 +147,9 @@ bootstrap_package_for_command() {
             ;;
         sha256sum|realpath|mktemp)
             printf '%s\n' coreutils
+            ;;
+        python3)
+            printf '%s\n' python3
             ;;
     esac
 }
@@ -314,10 +317,61 @@ create_install_temp_dir() {
     local created_dir
 
     parent_dir="$(dirname -- "$install_dir")"
-    mkdir -p -- "$parent_dir"
+    prepare_install_parent "$install_dir"
     created_dir="$(mktemp -d "$parent_dir/.acore-installer.XXXXXX")"
     AC_INSTALL_TMP_DIR="$created_dir"
     AC_INSTALL_TMP_DIR_CREATED="$created_dir"
+}
+
+validate_parent_directory() {
+    local parent_dir="$1"
+    local owner_id
+    local mode
+    local permissions
+
+    [ -d "$parent_dir" ] && [ ! -L "$parent_dir" ] || {
+        echo "错误：安装父目录不是普通目录: $parent_dir" >&2
+        return 1
+    }
+    owner_id="$(stat -c %u -- "$parent_dir")" || return 1
+    [ "$owner_id" = 0 ] || {
+        echo "错误：安装父目录必须由 root 拥有: $parent_dir" >&2
+        return 1
+    }
+    mode="$(stat -c %a -- "$parent_dir")" || return 1
+    permissions=$((8#$mode))
+    if (( (permissions & 0022) != 0 && (permissions & 01000) == 0 )); then
+        echo "错误：可写安装父目录必须启用 sticky bit: $parent_dir" >&2
+        return 1
+    fi
+}
+
+validate_install_parent() {
+    local install_dir="$1"
+    local parent_dir
+
+    parent_dir="$(dirname -- "$install_dir")"
+    parent_dir="$(realpath -e -- "$parent_dir")" || {
+        echo "错误：安装父目录不存在: $parent_dir" >&2
+        return 1
+    }
+    validate_parent_directory "$parent_dir"
+}
+
+prepare_install_parent() {
+    local install_dir="$1"
+    local parent_dir
+    local ancestor
+
+    parent_dir="$(dirname -- "$install_dir")"
+    ancestor="$parent_dir"
+    while [ ! -e "$ancestor" ] && [ ! -L "$ancestor" ]; do
+        ancestor="$(dirname -- "$ancestor")"
+    done
+    ancestor="$(realpath -e -- "$ancestor")" || return 1
+    validate_parent_directory "$ancestor"
+    (umask 077 && mkdir -p -- "$parent_dir") || return $?
+    validate_install_parent "$install_dir"
 }
 
 cleanup_install_temp_dir() {
@@ -339,13 +393,34 @@ cleanup_install_temp_dir() {
 fetch_url() {
     local url="$1"
     local output_file="$2"
+    local partial_file="${output_file}.part"
+    local status
+
+    rm -f -- "$partial_file"
 
     if command -v curl >/dev/null 2>&1; then
-        curl -L --fail --connect-timeout 10 --max-time 300 --retry 2 --retry-delay 2 -o "$output_file" "$url"
-        return $?
+        if curl -L --fail --connect-timeout 10 --max-time 300 --retry 2 --retry-delay 2 -o "$partial_file" "$url"; then
+            if mv -- "$partial_file" "$output_file"; then
+                return 0
+            fi
+            status=$?
+        else
+            status=$?
+        fi
+        rm -f -- "$partial_file"
+        return "$status"
     fi
 
-    wget -O "$output_file" --timeout=10 --tries=3 "$url"
+    if wget -O "$partial_file" --timeout=10 --tries=3 "$url"; then
+        if mv -- "$partial_file" "$output_file"; then
+            return 0
+        fi
+        status=$?
+    else
+        status=$?
+    fi
+    rm -f -- "$partial_file"
+    return "$status"
 }
 
 download_candidates() {
@@ -367,67 +442,218 @@ download_candidates() {
 download_archive() {
     local output_file="$1"
     local url
+    local status=1
+    local last_error=""
+    local attempted=()
 
     while IFS= read -r url; do
         [ -n "$url" ] || continue
+        attempted+=("$url")
         echo "下载: $url"
-        if fetch_url "$url" "$output_file"; then
+        if last_error="$(fetch_url "$url" "$output_file" 2>&1)"; then
             return 0
+        else
+            status=$?
         fi
         echo "下载失败，切换下一个地址"
     done < <(download_candidates)
 
     echo "错误：源码压缩包下载失败" >&2
-    return 1
+    echo "已尝试地址：" >&2
+    printf '  %s\n' "${attempted[@]}" >&2
+    [ -z "$last_error" ] || printf '最后一次错误：\n%s\n' "$last_error" >&2
+    rm -f -- "${output_file}.part"
+    return "$status"
 }
 
-extract_archive() {
+extract_and_validate_archive() {
     local archive_file="$1"
     local extract_dir="$2"
-    local source_dir
 
-    rm -rf "$extract_dir"
-    mkdir -p "$extract_dir"
-    unzip -q "$archive_file" -d "$extract_dir"
+    python3 - "$archive_file" "$extract_dir" <<'PY'
+import os
+import re
+import shutil
+import stat
+import sys
+import zipfile
 
-    source_dir="$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d | head -n1)"
-    if [ -z "$source_dir" ]; then
-        echo "错误：源码压缩包内容不正确" >&2
-        return 1
-    fi
+archive_file, extract_dir = sys.argv[1:]
+max_entries = int(os.environ.get("AC_ZIP_MAX_ENTRIES", "10000"))
+max_file_size = int(os.environ.get("AC_ZIP_MAX_FILE_SIZE", str(256 * 1024 * 1024)))
+max_total_size = int(os.environ.get("AC_ZIP_MAX_TOTAL_SIZE", str(1024 * 1024 * 1024)))
+max_ratio = int(os.environ.get("AC_ZIP_MAX_RATIO", "200"))
 
-    mv -- "$source_dir" "$AC_INSTALL_DIR"
+def reject(message):
+    raise ValueError(message)
+
+try:
+    with zipfile.ZipFile(archive_file) as archive:
+        entries = archive.infolist()
+        if not entries:
+            reject("ZIP 为空")
+        if len(entries) > max_entries:
+            reject("ZIP 条目数超限")
+
+        normalized_entries = {}
+        top_levels = set()
+        total_size = 0
+        for entry in entries:
+            name = entry.filename
+            if not name:
+                reject("ZIP 包含空路径")
+            if "\\" in name:
+                reject("ZIP 路径包含反斜杠")
+            if name.startswith("/") or name.startswith("//") or re.match(r"^[A-Za-z]:", name):
+                reject("ZIP 路径为绝对路径")
+            if any(ord(character) < 32 or ord(character) == 127 for character in name):
+                reject("ZIP 路径包含控制字符")
+
+            directory = name.endswith("/")
+            path_name = name[:-1] if directory else name
+            components = path_name.split("/")
+            if not path_name or any(component in ("", ".", "..") for component in components):
+                reject("ZIP 路径包含异常组件")
+            normalized = "/".join(components)
+            if normalized in normalized_entries:
+                reject("ZIP 包含重复路径")
+            normalized_entries[normalized] = (entry, directory)
+            top_levels.add(components[0])
+
+            if entry.flag_bits & 0x1:
+                reject("ZIP 包含加密条目")
+            mode = entry.external_attr >> 16
+            file_type = stat.S_IFMT(mode)
+            if file_type not in (0, stat.S_IFREG, stat.S_IFDIR):
+                reject("ZIP 包含非普通文件")
+            if directory and file_type not in (0, stat.S_IFDIR):
+                reject("ZIP 目录类型异常")
+            if not directory and file_type == stat.S_IFDIR:
+                reject("ZIP 文件类型异常")
+            if entry.file_size > max_file_size:
+                reject("ZIP 单文件展开大小超限")
+            total_size += entry.file_size
+            if total_size > max_total_size:
+                reject("ZIP 总展开大小超限")
+            if entry.file_size and entry.file_size / max(entry.compress_size, 1) > max_ratio:
+                reject("ZIP 压缩比超限")
+
+        if len(top_levels) != 1:
+            reject("ZIP 必须恰好包含一个顶层目录")
+        top_level = next(iter(top_levels))
+        top_entry = normalized_entries.get(top_level)
+        if top_entry is not None and not top_entry[1]:
+            reject("ZIP 顶层不是目录")
+        for required in ("ac.sh", "ac.conf", "src/lib.sh"):
+            required_path = f"{top_level}/{required}"
+            item = normalized_entries.get(required_path)
+            if item is None or item[1]:
+                reject(f"ZIP 缺少普通文件: {required}")
+            mode = item[0].external_attr >> 16
+            if stat.S_IFMT(mode) not in (0, stat.S_IFREG):
+                reject(f"ZIP 关键文件类型异常: {required}")
+
+        os.mkdir(extract_dir, 0o700)
+        try:
+            for normalized, (entry, directory) in normalized_entries.items():
+                destination = os.path.join(extract_dir, *normalized.split("/"))
+                if directory:
+                    os.makedirs(destination, mode=0o700, exist_ok=True)
+                    continue
+                os.makedirs(os.path.dirname(destination), mode=0o700, exist_ok=True)
+                with archive.open(entry) as source, open(destination, "xb") as target:
+                    shutil.copyfileobj(source, target)
+                os.chmod(destination, 0o600)
+
+            for root, directories, files in os.walk(extract_dir, followlinks=False):
+                for name in directories + files:
+                    mode = os.lstat(os.path.join(root, name)).st_mode
+                    if not (stat.S_ISDIR(mode) or stat.S_ISREG(mode)):
+                        reject("解压结果包含非普通文件")
+        except Exception:
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            raise
+except (OSError, ValueError, zipfile.BadZipFile, RuntimeError) as error:
+    print(f"错误：源码 ZIP 校验失败: {error}", file=sys.stderr)
+    sys.exit(1)
+
+print(os.path.join(extract_dir, top_level))
+PY
 }
 
-main() {
+claim_install_dir() {
+    local install_dir="$1"
+
+    validate_install_parent "$install_dir" || return $?
+    if [ -e "$install_dir" ] || [ -L "$install_dir" ]; then
+        echo "错误：安装目录已在校验后出现: $install_dir" >&2
+        return 1
+    fi
+    if ! mkdir -m 0700 -- "$install_dir"; then
+        echo "错误：无法原子声明安装目录: $install_dir" >&2
+        return 1
+    fi
+}
+
+install_validated_source() {
+    local source_dir="$1"
+    local install_dir="$2"
+    local entry
+    local destination
+
+    [ -d "$install_dir" ] && [ ! -L "$install_dir" ] || return 1
+    [ "$(stat -c %u -- "$install_dir")" = 0 ] || return 1
+    while IFS= read -r -d '' entry; do
+        destination="$install_dir/$(basename -- "$entry")"
+        [ ! -e "$destination" ] && [ ! -L "$destination" ] || return 1
+        mv -T -- "$entry" "$destination" || return $?
+    done < <(find "$source_dir" -mindepth 1 -maxdepth 1 -print0)
+}
+
+cleanup_on_exit() {
+    local status=$?
+
+    trap - EXIT
+    cleanup_install_temp_dir || true
+    exit "$status"
+}
+
+main() (
     local archive_file
     local extract_dir
     local install_dir
+    local source_dir
+    local install_status
 
     if [ "$(id -u)" != 0 ]; then
         echo "错误：必须以 root 权限运行" >&2
-        exit 1
+        return 1
     fi
 
-    detect_platform
-    if ! bootstrap_commands_available; then
-        install_bootstrap_dependencies
-    fi
-    check_bootstrap_commands
-    check_docker_environment
-    install_dir="$(validate_install_dir "$AC_INSTALL_DIR")"
+    detect_platform || return $?
+    install_bootstrap_dependencies || return $?
+    check_bootstrap_commands || return $?
+    check_docker_environment || return $?
+    install_dir="$(validate_install_dir "$AC_INSTALL_DIR")" || return $?
     AC_INSTALL_DIR="$install_dir"
-    create_install_temp_dir "$AC_INSTALL_DIR"
-    trap cleanup_install_temp_dir EXIT
+    create_install_temp_dir "$AC_INSTALL_DIR" || return $?
+    trap cleanup_on_exit EXIT
     archive_file="$AC_INSTALL_TMP_DIR/source.zip"
     extract_dir="$AC_INSTALL_TMP_DIR/source"
-    download_archive "$archive_file"
-    extract_archive "$archive_file" "$extract_dir"
+    download_archive "$archive_file" || return $?
+    source_dir="$(extract_and_validate_archive "$archive_file" "$extract_dir")" || return $?
+    claim_install_dir "$AC_INSTALL_DIR" || return $?
+    install_validated_source "$source_dir" "$AC_INSTALL_DIR" || return $?
 
-    cd "$AC_INSTALL_DIR"
-    chmod +x ./ac.sh
-    ./ac.sh install
-}
+    cd "$AC_INSTALL_DIR" || return $?
+    chmod +x ./ac.sh || return $?
+    if ./ac.sh install; then
+        install_status=0
+    else
+        install_status=$?
+    fi
+    return "$install_status"
+)
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     main "$@"

@@ -135,13 +135,16 @@ AC_INSTALL_TMP_DIR="$temp_dir/main-tmp"
 AC_INSTALL_DIR="$temp_dir/main-install"
 id() { printf '%s\n' 0; }
 detect_platform() { printf '%s\n' detect >> "$main_call_log"; }
-bootstrap_commands_available() { return 0; }
+install_bootstrap_dependencies() { printf '%s\n' bootstrap-install >> "$main_call_log"; }
 check_bootstrap_commands() { printf '%s\n' bootstrap-check >> "$main_call_log"; }
 check_docker_environment() { printf '%s\n' docker-check >> "$main_call_log"; }
 download_archive() { printf '%s\n' download >> "$main_call_log"; }
-extract_archive() {
+extract_and_validate_archive() {
     printf '%s\n' extract >> "$main_call_log"
-    mkdir -p "$AC_INSTALL_DIR"
+    mkdir -p "$temp_dir/main-source"
+    printf '%s\n' "$temp_dir/main-source"
+}
+install_validated_source() {
     cat > "$AC_INSTALL_DIR/ac.sh" <<'EOF'
 #!/bin/bash
 printf '%s\n' install >> "$MAIN_CALL_LOG"
@@ -149,6 +152,6 @@ EOF
 }
 
 main
-assert_eq $'detect\nbootstrap-check\ndocker-check\ndownload\nextract\ninstall' "$(<"$main_call_log")" "main 应在基础依赖复检后、下载前执行 Docker 预检"
+assert_eq $'detect\nbootstrap-install\nbootstrap-check\ndocker-check\ndownload\nextract\ninstall' "$(<"$main_call_log")" "main 应在基础依赖复检后、下载前执行 Docker 预检"
 
 echo "Docker 环境预检测试通过"

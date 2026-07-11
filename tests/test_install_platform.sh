@@ -164,7 +164,7 @@ create_dependency_scenario() {
     printf '%s\n' "$bin_dir"
 }
 
-all_commands=(curl wget unzip awk sed find free sha256sum realpath mktemp)
+all_commands=(curl wget unzip awk sed find free sha256sum realpath mktemp python3)
 ready_bin="$(create_dependency_scenario ready apt-get true "${all_commands[@]}")"
 PATH="$ready_bin" PACKAGE_LOG="$package_log" AC_PACKAGE_MANAGER=apt \
     bootstrap_commands_available || fail "命令和证书齐全时应通过检查"
@@ -180,15 +180,15 @@ assert_eq $'apt-get update\napt-get install -y --no-install-recommends ca-certif
 : > "$package_log"
 apt_empty_bin="$(create_dependency_scenario apt-empty apt-get false)"
 PATH="$apt_empty_bin" PACKAGE_LOG="$package_log" AC_PACKAGE_MANAGER=apt install_bootstrap_dependencies
-assert_eq $'apt-get update\napt-get install -y --no-install-recommends ca-certificates curl wget unzip gawk sed findutils procps coreutils' "$(<"$package_log")" "全部命令缺失时 apt 应安装完整基础依赖"
+assert_eq $'apt-get update\napt-get install -y --no-install-recommends ca-certificates curl wget unzip gawk sed findutils procps coreutils python3' "$(<"$package_log")" "全部命令缺失时 apt 应安装完整基础依赖"
 
 : > "$package_log"
 dnf_empty_bin="$(create_dependency_scenario dnf-empty dnf false)"
 PATH="$dnf_empty_bin" PACKAGE_LOG="$package_log" AC_PACKAGE_MANAGER=dnf install_bootstrap_dependencies
-assert_eq "dnf install -y ca-certificates curl wget unzip gawk sed findutils procps-ng coreutils" "$(<"$package_log")" "全部命令缺失时 dnf 应安装完整基础依赖"
+assert_eq "dnf install -y ca-certificates curl wget unzip gawk sed findutils procps-ng coreutils python3" "$(<"$package_log")" "全部命令缺失时 dnf 应安装完整基础依赖"
 
 : > "$package_log"
-dnf_partial_bin="$(create_dependency_scenario dnf-partial dnf true curl wget unzip awk sed find free sha256sum mktemp)"
+dnf_partial_bin="$(create_dependency_scenario dnf-partial dnf true curl wget unzip awk sed find free sha256sum mktemp python3)"
 PATH="$dnf_partial_bin" PACKAGE_LOG="$package_log" AC_PACKAGE_MANAGER=dnf install_bootstrap_dependencies
 assert_eq "dnf install -y coreutils" "$(<"$package_log")" "dnf 应仅安装缺失命令对应的软件包"
 
