@@ -3,25 +3,12 @@ set -e
 
 source "$(dirname "${BASH_SOURCE[0]}")/test_helper.sh"
 
-temp_dir="$(mktemp -d)"
-trap 'rm -rf "$temp_dir"' EXIT
-mkdir -p "$temp_dir/bin"
-cat > "$temp_dir/bin/curl" <<'EOF'
-#!/bin/bash
-exit 1
-EOF
-chmod +x "$temp_dir/bin/curl"
+entry_guard='if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then'
+if ! grep -Fq "$entry_guard" "$ROOT_DIR/install.sh"; then
+    fail "install.sh 缺少 source 入口保护"
+fi
 
-set +e
-output="$({
-    PATH="$temp_dir/bin:/usr/bin:/bin" \
-    AC_INSTALL_TMP_DIR="$temp_dir/tmp" \
-    AC_INSTALL_DIR="$temp_dir/install" \
-    bash -c 'source "$1"; printf "SOURCE_OK\\n"' _ "$ROOT_DIR/install.sh"
-} 2>&1)"
-status=$?
-set -e
+load_installer
 
-assert_eq "0" "$status"
-assert_contains "$output" "SOURCE_OK"
+declare -F main >/dev/null || fail "source install.sh 后未定义 main 函数"
 echo "install.sh source 测试通过"
