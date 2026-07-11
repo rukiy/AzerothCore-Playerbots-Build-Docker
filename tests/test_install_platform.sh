@@ -192,6 +192,50 @@ dnf_partial_bin="$(create_dependency_scenario dnf-partial dnf true curl wget unz
 PATH="$dnf_partial_bin" PACKAGE_LOG="$package_log" AC_PACKAGE_MANAGER=dnf install_bootstrap_dependencies
 assert_eq "dnf install -y coreutils" "$(<"$package_log")" "dnf 应仅安装缺失命令对应的软件包"
 
+apt_failure_bin="$(create_dependency_scenario apt-failure apt-get false)"
+cat > "$apt_failure_bin/apt-get" <<'EOF'
+#!/bin/bash
+printf 'apt-get %s\n' "$*" >> "$PACKAGE_LOG"
+case "$1" in
+    update) exit "${APT_UPDATE_STATUS:-0}" ;;
+    install) exit "${APT_INSTALL_STATUS:-0}" ;;
+esac
+EOF
+chmod +x "$apt_failure_bin/apt-get"
+
+: > "$package_log"
+set +e
+PATH="$apt_failure_bin" PACKAGE_LOG="$package_log" AC_PACKAGE_MANAGER=apt \
+    APT_UPDATE_STATUS=61 APT_INSTALL_STATUS=0 install_bootstrap_dependencies
+package_status=$?
+set -e
+assert_eq "61" "$package_status" "apt-get update 失败状态应透传"
+assert_eq "apt-get update" "$(<"$package_log")" "apt-get update 失败后不得继续安装"
+
+: > "$package_log"
+set +e
+PATH="$apt_failure_bin" PACKAGE_LOG="$package_log" AC_PACKAGE_MANAGER=apt \
+    APT_UPDATE_STATUS=0 APT_INSTALL_STATUS=62 install_bootstrap_dependencies
+package_status=$?
+set -e
+assert_eq "62" "$package_status" "apt-get install 失败状态应透传"
+
+dnf_failure_bin="$(create_dependency_scenario dnf-failure dnf false)"
+cat > "$dnf_failure_bin/dnf" <<'EOF'
+#!/bin/bash
+printf 'dnf %s\n' "$*" >> "$PACKAGE_LOG"
+exit "${DNF_INSTALL_STATUS:-0}"
+EOF
+chmod +x "$dnf_failure_bin/dnf"
+
+: > "$package_log"
+set +e
+PATH="$dnf_failure_bin" PACKAGE_LOG="$package_log" AC_PACKAGE_MANAGER=dnf \
+    DNF_INSTALL_STATUS=63 install_bootstrap_dependencies
+package_status=$?
+set -e
+assert_eq "63" "$package_status" "dnf install 失败状态应透传"
+
 set +e
 check_output="$(PATH="$dnf_partial_bin" AC_PACKAGE_MANAGER=dnf check_bootstrap_commands 2>&1)"
 check_status=$?

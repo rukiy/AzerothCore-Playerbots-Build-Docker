@@ -186,11 +186,11 @@ install_bootstrap_dependencies() {
     case "$AC_PACKAGE_MANAGER" in
         apt)
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update
-            apt-get install -y --no-install-recommends "${packages[@]}"
+            apt-get update || return $?
+            apt-get install -y --no-install-recommends "${packages[@]}" || return $?
             ;;
         dnf)
-            dnf install -y "${packages[@]}"
+            dnf install -y "${packages[@]}" || return $?
             ;;
         *)
             echo "错误：未知包管理器: $AC_PACKAGE_MANAGER" >&2
@@ -603,16 +603,20 @@ claim_install_dir() {
 install_validated_source() {
     local source_dir="$1"
     local install_dir="$2"
+    local list_file
     local entry
     local destination
 
     [ -d "$install_dir" ] && [ ! -L "$install_dir" ] || return 1
     [ "$(stat -c %u -- "$install_dir")" = 0 ] || return 1
+    [ -n "${AC_INSTALL_TMP_DIR:-}" ] && [ -d "$AC_INSTALL_TMP_DIR" ] || return 1
+    list_file="$AC_INSTALL_TMP_DIR/install-entries.list"
+    find "$source_dir" -mindepth 1 -maxdepth 1 -print0 > "$list_file" || return $?
     while IFS= read -r -d '' entry; do
-        destination="$install_dir/$(basename -- "$entry")"
+        destination="$install_dir/$(basename -- "$entry")" || return $?
         [ ! -e "$destination" ] && [ ! -L "$destination" ] || return 1
-        mv -T -- "$entry" "$destination" || return $?
-    done < <(find "$source_dir" -mindepth 1 -maxdepth 1 -print0)
+        mv -- "$entry" "$install_dir/" || return $?
+    done < "$list_file"
 }
 
 cleanup_on_exit() {

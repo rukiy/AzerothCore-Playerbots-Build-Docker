@@ -319,9 +319,11 @@ test_create_install_temp_dir_propagates_failures() {
 test_partial_install_preserved() {
     local source="$temp_dir/partial-source"
     local install="$temp_dir/partial-install"
+    local install_tmp="$temp_dir/partial-tmp"
     local status
 
-    mkdir -p "$source"
+    mkdir -p "$source" "$install_tmp"
+    AC_INSTALL_TMP_DIR="$install_tmp"
     printf one > "$source/one"
     printf two > "$source/two"
     claim_install_dir "$install"
@@ -341,6 +343,55 @@ test_partial_install_preserved() {
     assert_eq "31" "$status" "内容迁移失败应返回原始状态"
     [ -d "$install" ] || fail "内容迁移失败后必须保留目标目录"
     assert_eq "1" "$(find "$install" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" "应保留已迁移内容用于诊断"
+}
+
+assert_find_failure_stops_install() {
+    local mode="$1"
+    local source="$temp_dir/find-source-$mode"
+    local install="$temp_dir/find-install-$mode"
+    local install_tmp="$temp_dir/find-tmp-$mode"
+    local status
+
+    mkdir -p "$source" "$install_tmp"
+    printf one > "$source/one"
+    printf two > "$source/two"
+    claim_install_dir "$install"
+    AC_INSTALL_TMP_DIR="$install_tmp"
+    find() {
+        printf '%s\0' "$source/one"
+        [ "$mode" = partial ] || printf '%s\0' "$source/two"
+        return 55
+    }
+    set +e
+    install_validated_source "$source" "$install"
+    status=$?
+    set -e
+    unset -f find
+    assert_eq "55" "$status" "find 输出 $mode 条目后失败应透传状态"
+    assert_eq "0" "$(find "$install" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" "find 失败后不得迁移任何条目"
+}
+
+test_main_stops_when_find_fails() {
+    local fixture="$temp_dir/find-main-fixture"
+    local archive="$temp_dir/find-main.zip"
+    local install="$temp_dir/find-main-install"
+    local marker="$temp_dir/find-main.log"
+    local status
+
+    make_project_tree "$fixture"
+    make_zip "$fixture" "$archive"
+    find() {
+        printf '%s\0' "$1/src" "$1/ac.sh" "$1/ac.conf"
+        return 55
+    }
+    set +e
+    AC_TEST_MARKER="$marker" AC_TEST_INSTALL_EXIT_CODE=0 run_main_fixture "$install" "$archive"
+    status=$?
+    set -e
+    unset -f find
+    assert_eq "55" "$status" "main 应透传源码列表生成失败状态"
+    [ ! -e "$marker" ] || fail "源码列表生成失败时不得执行 ac.sh"
+    [ -d "$install" ] || fail "源码列表生成失败后应保留已声明目标目录"
 }
 
 run_main_fixture() {
@@ -441,7 +492,10 @@ test_parent_security
 test_prepare_install_parent_stops_on_unsafe_ancestor
 test_create_install_temp_dir_propagates_failures
 test_partial_install_preserved
+assert_find_failure_stops_install partial
+assert_find_failure_stops_install all
 test_main_success_and_status
+test_main_stops_when_find_fails
 assert_race_rejected directory
 assert_race_rejected symlink
 assert_race_rejected broken-symlink
