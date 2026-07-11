@@ -211,6 +211,63 @@ check_bootstrap_commands() {
     fi
 }
 
+print_docker_help() {
+    local reason="$1"
+
+    echo "错误：$reason" >&2
+    case "$AC_PACKAGE_MANAGER" in
+        apt)
+            echo "请按 Docker 官方 Ubuntu/Debian 安装文档配置 Docker Engine：" >&2
+            echo "https://docs.docker.com/engine/install/ubuntu/" >&2
+            echo "https://docs.docker.com/engine/install/debian/" >&2
+            ;;
+        dnf)
+            echo "请按 Docker 官方 RHEL 安装文档配置 Docker Engine：" >&2
+            echo "https://docs.docker.com/engine/install/rhel/" >&2
+            ;;
+    esac
+    echo "完成后请确认以下命令均可正常执行：" >&2
+    echo "  docker info" >&2
+    echo "  docker compose version" >&2
+    echo "  docker buildx version" >&2
+}
+
+check_docker_environment() {
+    local info_output
+    local reason
+
+    if ! command -v docker >/dev/null 2>&1; then
+        print_docker_help "未找到 docker 命令"
+        return 1
+    fi
+
+    if ! info_output="$(docker info 2>&1)"; then
+        case "${info_output,,}" in
+            *permission\ denied*|*access\ denied*)
+                reason="无权访问 Docker daemon"
+                ;;
+            *cannot\ connect*|*daemon\ running*|*connection\ refused*)
+                reason="Docker daemon 未运行或 context 不可达"
+                ;;
+            *)
+                reason="Docker daemon 检查失败: $info_output"
+                ;;
+        esac
+        print_docker_help "$reason"
+        return 1
+    fi
+
+    if ! docker compose version >/dev/null 2>&1; then
+        print_docker_help "Docker Compose 不可用"
+        return 1
+    fi
+
+    if ! docker buildx version >/dev/null 2>&1; then
+        print_docker_help "Docker Buildx 不可用"
+        return 1
+    fi
+}
+
 fetch_url() {
     local url="$1"
     local output_file="$2"
@@ -303,6 +360,7 @@ main() {
         install_bootstrap_dependencies
     fi
     check_bootstrap_commands
+    check_docker_environment
     mkdir -p "$AC_INSTALL_TMP_DIR"
     download_archive "$archive_file"
     extract_archive "$archive_file" "$extract_dir"
