@@ -4,6 +4,7 @@ set -e
 AC_INSTALL_DIR="${AC_INSTALL_DIR:-$HOME/acore}"
 AC_INSTALL_BRANCH="${AC_INSTALL_BRANCH:-main}"
 AC_INSTALL_REPO="${AC_INSTALL_REPO:-rukiy/AzerothCore-Playerbots-Build-Docker}"
+AC_INSTALL_DIRECT_ONLY="${AC_INSTALL_DIRECT_ONLY:-0}"
 AC_INSTALL_TMP_DIR="${AC_INSTALL_TMP_DIR:-}"
 AC_INSTALL_TMP_DIR_CREATED=""
 AC_OS_RELEASE_FILE="${AC_OS_RELEASE_FILE:-/etc/os-release}"
@@ -402,8 +403,9 @@ fetch_url() {
         if curl -L --fail --connect-timeout 10 --max-time 300 --retry 2 --retry-delay 2 -o "$partial_file" "$url"; then
             if mv -- "$partial_file" "$output_file"; then
                 return 0
+            else
+                status=$?
             fi
-            status=$?
         else
             status=$?
         fi
@@ -414,8 +416,9 @@ fetch_url() {
     if wget -O "$partial_file" --timeout=10 --tries=3 "$url"; then
         if mv -- "$partial_file" "$output_file"; then
             return 0
+        else
+            status=$?
         fi
-        status=$?
     else
         status=$?
     fi
@@ -434,6 +437,7 @@ download_candidates() {
     local mirror
 
     printf '%s\n' "$origin_url"
+    [ "$AC_INSTALL_DIRECT_ONLY" != 1 ] || return 0
     for mirror in "${mirrors[@]}"; do
         printf '%s%s\n' "$mirror" "$origin_url"
     done
@@ -582,41 +586,91 @@ print(os.path.join(extract_dir, top_level))
 PY
 }
 
-claim_install_dir() {
-    local install_dir="$1"
+atomic_publish_source() {
+    local source_dir="$1"
+    local install_dir="$2"
+    local source_real
+    local temp_real
+    local temp_parent_real
+    local install_parent_real
+    local temp_name
     local status
 
+    [ -d "$source_dir" ] && [ ! -L "$source_dir" ] || {
+        echo "错误：待发布源码不是普通目录: $source_dir" >&2
+        return 1
+    }
+    [ -n "${AC_INSTALL_TMP_DIR:-}" ] && [ -d "$AC_INSTALL_TMP_DIR" ] && [ ! -L "$AC_INSTALL_TMP_DIR" ] || {
+        echo "错误：安装临时目录无效" >&2
+        return 1
+    }
+
+    source_real="$(realpath -e -- "$source_dir")" || return $?
+    temp_real="$(realpath -e -- "$AC_INSTALL_TMP_DIR")" || return $?
+    temp_name="$(basename -- "$temp_real")" || return $?
+    [[ "$temp_name" =~ ^\.acore-installer\.[[:alnum:]]{6}$ ]] || {
+        echo "错误：安装临时目录名称无效: $temp_real" >&2
+        return 1
+    }
+    case "$source_real" in
+        "$temp_real"/*) ;;
+        *)
+            echo "错误：待发布源码不在安装临时目录内: $source_real" >&2
+            return 1
+            ;;
+    esac
+
+    temp_parent_real="$(realpath -e -- "$(dirname -- "$temp_real")")" || return $?
+    install_parent_real="$(realpath -e -- "$(dirname -- "$install_dir")")" || return $?
+    [ "$temp_parent_real" = "$install_parent_real" ] || {
+        echo "错误：源码临时目录与安装目标不在同一父目录" >&2
+        return 1
+    }
     validate_install_parent "$install_dir" || return $?
     if [ -e "$install_dir" ] || [ -L "$install_dir" ]; then
-        echo "错误：安装目录已在校验后出现: $install_dir" >&2
+        echo "错误：安装目录已在发布前出现: $install_dir" >&2
         return 1
     fi
-    if mkdir -m 0700 -- "$install_dir"; then
+    chmod 0700 -- "$source_real" || return $?
+
+    if python3 - "$source_real" "$install_dir" <<'PY'
+import ctypes
+import errno
+import os
+import sys
+
+source, target = (os.fsencode(path) for path in sys.argv[1:])
+at_fdcwd = -100
+rename_noreplace = 1
+
+try:
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = libc.renameat2
+except (AttributeError, OSError) as error:
+    print(f"错误：glibc renameat2 不可用，拒绝非原子发布: {error}", file=sys.stderr)
+    sys.exit(1)
+
+renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+renameat2.restype = ctypes.c_int
+if renameat2(at_fdcwd, source, at_fdcwd, target, rename_noreplace) == 0:
+    sys.exit(0)
+
+error_number = ctypes.get_errno()
+if error_number == errno.ENOSYS:
+    message = "当前内核不支持 renameat2，拒绝非原子发布"
+elif error_number == errno.EEXIST:
+    message = "安装目标已存在，未覆盖竞争目标"
+else:
+    message = f"renameat2 发布失败: {os.strerror(error_number)}"
+print(f"错误：{message}", file=sys.stderr)
+sys.exit(error_number if 0 < error_number < 256 else 1)
+PY
+    then
         return 0
     else
         status=$?
-        echo "错误：无法原子声明安装目录: $install_dir" >&2
         return "$status"
     fi
-}
-
-install_validated_source() {
-    local source_dir="$1"
-    local install_dir="$2"
-    local list_file
-    local entry
-    local destination
-
-    [ -d "$install_dir" ] && [ ! -L "$install_dir" ] || return 1
-    [ "$(stat -c %u -- "$install_dir")" = 0 ] || return 1
-    [ -n "${AC_INSTALL_TMP_DIR:-}" ] && [ -d "$AC_INSTALL_TMP_DIR" ] || return 1
-    list_file="$AC_INSTALL_TMP_DIR/install-entries.list"
-    find "$source_dir" -mindepth 1 -maxdepth 1 -print0 > "$list_file" || return $?
-    while IFS= read -r -d '' entry; do
-        destination="$install_dir/$(basename -- "$entry")" || return $?
-        [ ! -e "$destination" ] && [ ! -L "$destination" ] || return 1
-        mv -- "$entry" "$install_dir/" || return $?
-    done < "$list_file"
 }
 
 cleanup_on_exit() {
@@ -651,8 +705,7 @@ main() (
     extract_dir="$AC_INSTALL_TMP_DIR/source"
     download_archive "$archive_file" || return $?
     source_dir="$(extract_and_validate_archive "$archive_file" "$extract_dir")" || return $?
-    claim_install_dir "$AC_INSTALL_DIR" || return $?
-    install_validated_source "$source_dir" "$AC_INSTALL_DIR" || return $?
+    atomic_publish_source "$source_dir" "$AC_INSTALL_DIR" || return $?
 
     cd "$AC_INSTALL_DIR" || return $?
     chmod +x ./ac.sh || return $?

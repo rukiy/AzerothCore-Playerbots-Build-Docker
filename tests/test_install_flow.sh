@@ -14,6 +14,7 @@ make_project_tree() {
     printf '#!/bin/bash\nprintf "%%s\\n" "$*" > "$AC_TEST_MARKER"\nexit "${AC_TEST_INSTALL_EXIT_CODE:-0}"\n' > "$root/project/ac.sh"
     printf '配置\n' > "$root/project/ac.conf"
     printf '#!/bin/bash\n' > "$root/project/src/lib.sh"
+    printf 'hidden\n' > "$root/project/.project-state"
 }
 
 make_zip() {
@@ -148,6 +149,104 @@ test_fetch_url_atomicity() {
     assert_eq "complete" "$(<"$output")" "成功下载应原子生成最终文件"
     [ ! -e "$output.part" ] || fail "成功下载后不得残留 .part 文件"
     unset -f curl
+}
+
+test_fetch_url_move_failure_status() {
+    local work="$temp_dir/fetch-move-failure"
+    local output="$work/archive.zip"
+    local status
+
+    mkdir -p "$work"
+    curl() {
+        local destination=""
+        while [ "$#" -gt 0 ]; do
+            if [ "$1" = -o ]; then
+                destination="$2"
+                shift 2
+                continue
+            fi
+            shift
+        done
+        printf 'curl-complete' > "$destination"
+    }
+    mv() { return 37; }
+    export -f curl mv
+    set +e
+    fetch_url "https://example.invalid/curl.zip" "$output" >/dev/null 2>&1
+    status=$?
+    set -e
+    unset -f curl mv
+    assert_eq "37" "$status" "curl 下载完成后 mv 失败应透传状态"
+    [ ! -e "$output" ] || fail "curl 的 mv 失败不得生成目标文件"
+    [ ! -e "$output.part" ] || fail "curl 的 mv 失败必须清理 .part 文件"
+
+    command() {
+        if [ "$1" = -v ] && [ "$2" = curl ]; then
+            return 1
+        fi
+        builtin command "$@"
+    }
+    wget() {
+        local destination="$2"
+        printf 'wget-complete' > "$destination"
+    }
+    mv() { return 37; }
+    export -f command wget mv
+    set +e
+    fetch_url "https://example.invalid/wget.zip" "$output" >/dev/null 2>&1
+    status=$?
+    set -e
+    unset -f command wget mv
+    assert_eq "37" "$status" "wget 下载完成后 mv 失败应透传状态"
+    [ ! -e "$output" ] || fail "wget 的 mv 失败不得生成目标文件"
+    [ ! -e "$output.part" ] || fail "wget 的 mv 失败必须清理 .part 文件"
+}
+
+test_move_failure_allows_proxy_fallback() {
+    local output="$temp_dir/move-fallback.zip"
+    local move_count_file="$temp_dir/move-fallback.count"
+
+    printf '0\n' > "$move_count_file"
+    curl() {
+        local destination=""
+        while [ "$#" -gt 0 ]; do
+            if [ "$1" = -o ]; then
+                destination="$2"
+                shift 2
+                continue
+            fi
+            shift
+        done
+        printf 'complete' > "$destination"
+    }
+    mv() {
+        local count
+        count="$(<"$AC_TEST_MOVE_COUNT_FILE")"
+        count=$((count + 1))
+        printf '%s\n' "$count" > "$AC_TEST_MOVE_COUNT_FILE"
+        if [ "$count" -eq 1 ]; then
+            return 37
+        fi
+        command mv "$@"
+    }
+    export AC_TEST_MOVE_COUNT_FILE="$move_count_file"
+    export -f curl mv
+    AC_INSTALL_REPO="owner/repo"
+    AC_INSTALL_BRANCH="branch"
+    download_archive "$output" >/dev/null
+    unset -f curl mv
+    unset AC_TEST_MOVE_COUNT_FILE
+    assert_eq "2" "$(<"$move_count_file")" "原站发布失败后应继续尝试代理"
+    assert_eq "complete" "$(<"$output")" "代理回退成功后应生成完整目标文件"
+}
+
+test_download_candidates_direct_only() {
+    local expected="https://github.com/owner/repo/archive/refs/heads/branch.zip"
+
+    AC_INSTALL_REPO="owner/repo"
+    AC_INSTALL_BRANCH="branch"
+    assert_eq "5" "$(download_candidates | wc -l | tr -d ' ')" "默认应输出原站和四个代理"
+    assert_eq "$expected" "$(AC_INSTALL_DIRECT_ONLY=1 download_candidates)" "仅直连模式不得输出代理地址"
 }
 
 test_download_fallback() {
@@ -316,82 +415,71 @@ test_create_install_temp_dir_propagates_failures() {
     assert_eq "0" "$(find "$temp_dir/temp-failure" -mindepth 1 -maxdepth 1 -type d -name '.acore-installer.*' | wc -l | tr -d ' ')" "mktemp 失败不得留下临时目录"
 }
 
-test_partial_install_preserved() {
-    local source="$temp_dir/partial-source"
-    local install="$temp_dir/partial-install"
-    local install_tmp="$temp_dir/partial-tmp"
+test_atomic_publish_failure_is_invisible() {
+    local parent="$temp_dir/publish-failure"
+    local install="$parent/acore"
+    local install_tmp="$parent/.acore-installer.ABC123"
+    local source="$install_tmp/source/project"
+    local mode_file="$temp_dir/publish-source-mode"
     local status
 
-    mkdir -p "$source" "$install_tmp"
+    mkdir -p "$source/src"
+    printf '#!/bin/bash\n' > "$source/ac.sh"
+    printf 'config\n' > "$source/ac.conf"
+    printf '#!/bin/bash\n' > "$source/src/lib.sh"
+    chmod 0755 "$source"
     AC_INSTALL_TMP_DIR="$install_tmp"
-    printf one > "$source/one"
-    printf two > "$source/two"
-    claim_install_dir "$install"
-    AC_TEST_MV_COUNT=0
-    mv() {
-        AC_TEST_MV_COUNT=$((AC_TEST_MV_COUNT + 1))
-        if [ "$AC_TEST_MV_COUNT" -eq 2 ]; then
-            return 31
-        fi
-        command mv "$@"
+    python3() {
+        stat -c %a -- "$2" > "$AC_TEST_SOURCE_MODE_FILE"
+        return 39
     }
+    export AC_TEST_SOURCE_MODE_FILE="$mode_file"
+    export -f python3
     set +e
-    install_validated_source "$source" "$install"
+    atomic_publish_source "$source" "$install"
     status=$?
     set -e
-    unset -f mv
-    assert_eq "31" "$status" "内容迁移失败应返回原始状态"
-    [ -d "$install" ] || fail "内容迁移失败后必须保留目标目录"
-    assert_eq "1" "$(find "$install" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" "应保留已迁移内容用于诊断"
+    unset -f python3
+    unset AC_TEST_SOURCE_MODE_FILE
+    assert_eq "39" "$status" "rename helper 失败状态应原样透传"
+    assert_eq "700" "$(<"$mode_file")" "发布前源码目录权限应收紧为 0700"
+    [ ! -e "$install" ] && [ ! -L "$install" ] || fail "发布失败不得暴露目标目录"
+    [ -d "$source" ] || fail "发布失败后完整源码目录应留在私有临时目录等待清理"
 }
 
-assert_find_failure_stops_install() {
-    local mode="$1"
-    local source="$temp_dir/find-source-$mode"
-    local install="$temp_dir/find-install-$mode"
-    local install_tmp="$temp_dir/find-tmp-$mode"
+test_atomic_publish_rejects_outside_source() {
+    local parent="$temp_dir/publish-outside"
+    local install="$parent/acore"
+    local install_tmp="$parent/.acore-installer.DEF456"
+    local source="$parent/outside-source"
     local status
 
-    mkdir -p "$source" "$install_tmp"
-    printf one > "$source/one"
-    printf two > "$source/two"
-    claim_install_dir "$install"
+    mkdir -p "$install_tmp" "$source"
     AC_INSTALL_TMP_DIR="$install_tmp"
-    find() {
-        printf '%s\0' "$source/one"
-        [ "$mode" = partial ] || printf '%s\0' "$source/two"
-        return 55
-    }
     set +e
-    install_validated_source "$source" "$install"
+    atomic_publish_source "$source" "$install" >/dev/null 2>&1
     status=$?
     set -e
-    unset -f find
-    assert_eq "55" "$status" "find 输出 $mode 条目后失败应透传状态"
-    assert_eq "0" "$(find "$install" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" "find 失败后不得迁移任何条目"
+    [ "$status" -ne 0 ] || fail "私有临时目录外的源码不得发布"
+    [ ! -e "$install" ] && [ ! -L "$install" ] || fail "非法源码位置不得生成目标目录"
 }
 
-test_main_stops_when_find_fails() {
-    local fixture="$temp_dir/find-main-fixture"
-    local archive="$temp_dir/find-main.zip"
-    local install="$temp_dir/find-main-install"
-    local marker="$temp_dir/find-main.log"
-    local status
+test_atomic_publish_success() {
+    local parent="$temp_dir/publish-success"
+    local install="$parent/acore"
+    local install_tmp="$parent/.acore-installer.GHI789"
+    local source="$install_tmp/source/project"
 
-    make_project_tree "$fixture"
-    make_zip "$fixture" "$archive"
-    find() {
-        printf '%s\0' "$1/src" "$1/ac.sh" "$1/ac.conf"
-        return 55
-    }
-    set +e
-    AC_TEST_MARKER="$marker" AC_TEST_INSTALL_EXIT_CODE=0 run_main_fixture "$install" "$archive"
-    status=$?
-    set -e
-    unset -f find
-    assert_eq "55" "$status" "main 应透传源码列表生成失败状态"
-    [ ! -e "$marker" ] || fail "源码列表生成失败时不得执行 ac.sh"
-    [ -d "$install" ] || fail "源码列表生成失败后应保留已声明目标目录"
+    make_project_tree "$install_tmp/source"
+    source="$install_tmp/source/project"
+    AC_INSTALL_TMP_DIR="$install_tmp"
+    atomic_publish_source "$source" "$install"
+    [ ! -e "$source" ] || fail "发布成功后源码目录应整体移出临时目录"
+    [ -f "$install/ac.sh" ] || fail "发布成功时 ac.sh 应随目录整体出现"
+    [ -f "$install/ac.conf" ] || fail "发布成功时 ac.conf 应随目录整体出现"
+    [ -f "$install/src/lib.sh" ] || fail "发布成功时 src/lib.sh 应随目录整体出现"
+    assert_eq "hidden" "$(<"$install/.project-state")" "发布成功时点文件应随目录整体出现"
+    assert_eq "700" "$(stat -c %a -- "$install")" "发布后的目标目录权限应为 0700"
 }
 
 run_main_fixture() {
@@ -423,6 +511,8 @@ test_main_success_and_status() {
     assert_eq "install" "$(<"$marker_success")" "主流程应调用 ac.sh install"
     [ -d "$install_success" ] || fail "成功安装后应保留项目目录"
     assert_eq "700" "$(stat -c %a -- "$install_success")" "原子声明的目标目录权限应为 0700"
+    [ -f "$install_success/ac.sh" ] && [ -f "$install_success/ac.conf" ] && [ -f "$install_success/src/lib.sh" ] || fail "成功发布后关键文件必须完整出现"
+    assert_eq "hidden" "$(<"$install_success/.project-state")" "成功发布后点文件必须完整出现"
 
     set +e
     AC_TEST_MARKER="$marker_failure" AC_TEST_INSTALL_EXIT_CODE=23 run_main_fixture "$install_failure" "$archive"
@@ -431,6 +521,8 @@ test_main_success_and_status() {
     assert_eq "23" "$status" "ac.sh 状态 23 应由 main 原样返回"
     assert_eq "install" "$(<"$marker_failure")" "失败安装仍应记录 install 参数"
     [ -d "$install_failure" ] || fail "ac.sh 失败后应保留项目目录"
+    [ -f "$install_failure/ac.sh" ] && [ -f "$install_failure/ac.conf" ] && [ -f "$install_failure/src/lib.sh" ] || fail "ac.sh 返回 23 后应保留完整项目"
+    assert_eq "hidden" "$(<"$install_failure/.project-state")" "ac.sh 返回 23 后应保留项目点文件"
     assert_eq "0" "$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d -name '.acore-installer.*' | wc -l | tr -d ' ')" "ac.sh 失败后应清理临时目录"
 }
 
@@ -441,7 +533,6 @@ assert_race_rejected() {
     local install="$temp_dir/race-target-$kind"
     local attack="$temp_dir/attack-$kind"
     local attack_marker="$temp_dir/attack-$kind.log"
-    local hook_marker="$temp_dir/hook-$kind.log"
     local status
 
     make_project_tree "$fixture"
@@ -453,10 +544,8 @@ assert_race_rejected() {
     AC_TEST_RACE_KIND="$kind"
     AC_TEST_RACE_INSTALL="$install"
     AC_TEST_RACE_ATTACK="$attack"
-    AC_TEST_RACE_HOOK_MARKER="$hook_marker"
-    mkdir() {
-        if [ "$#" -eq 4 ] && [ "$1" = -m ] && [ "$2" = 0700 ] && [ "$3" = -- ] && [ "$4" = "$AC_TEST_RACE_INSTALL" ]; then
-            printf 'called\n' > "$AC_TEST_RACE_HOOK_MARKER"
+    python3() {
+        if [ "$1" = - ] && [ "$3" = "$AC_TEST_RACE_INSTALL" ]; then
             case "$AC_TEST_RACE_KIND" in
                 directory)
                     command mkdir -- "$AC_TEST_RACE_INSTALL"
@@ -466,14 +555,13 @@ assert_race_rejected() {
                 broken-symlink) ln -s "$AC_TEST_RACE_ATTACK-missing" "$AC_TEST_RACE_INSTALL" ;;
             esac
         fi
-        command mkdir "$@"
+        command python3 "$@"
     }
     set +e
     run_main_fixture "$install" "$archive" >/dev/null 2>&1
     status=$?
     set -e
     [ "$status" -ne 0 ] || fail "并发出现 $kind 目标时必须失败"
-    assert_eq "called" "$(<"$hook_marker")" "竞态钩子必须在最终声明前执行"
     [ ! -e "$attack_marker" ] || fail "不得执行并发目标中的 ac.sh"
     case "$kind" in
         directory) [ -f "$install/sentinel" ] || fail "不得删除或覆盖竞争目录" ;;
@@ -481,21 +569,23 @@ assert_race_rejected() {
         broken-symlink) [ -L "$install" ] || fail "不得删除断链符号链接" ;;
     esac
     assert_eq "0" "$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d -name '.acore-installer.*' | wc -l | tr -d ' ')" "竞态失败后应清理临时目录"
-    unset -f mkdir
-    unset AC_TEST_RACE_KIND AC_TEST_RACE_INSTALL AC_TEST_RACE_ATTACK AC_TEST_RACE_HOOK_MARKER
+    unset -f python3
+    unset AC_TEST_RACE_KIND AC_TEST_RACE_INSTALL AC_TEST_RACE_ATTACK
 }
 
 test_fetch_url_atomicity
+test_fetch_url_move_failure_status
+test_move_failure_allows_proxy_fallback
+test_download_candidates_direct_only
 test_download_fallback
 test_archive_validation
 test_parent_security
 test_prepare_install_parent_stops_on_unsafe_ancestor
 test_create_install_temp_dir_propagates_failures
-test_partial_install_preserved
-assert_find_failure_stops_install partial
-assert_find_failure_stops_install all
+test_atomic_publish_failure_is_invisible
+test_atomic_publish_rejects_outside_source
+test_atomic_publish_success
 test_main_success_and_status
-test_main_stops_when_find_fails
 assert_race_rejected directory
 assert_race_rejected symlink
 assert_race_rejected broken-symlink

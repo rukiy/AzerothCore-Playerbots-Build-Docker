@@ -141,10 +141,10 @@ check_docker_environment() { printf '%s\n' docker-check >> "$main_call_log"; }
 download_archive() { printf '%s\n' download >> "$main_call_log"; }
 extract_and_validate_archive() {
     printf '%s\n' extract >> "$main_call_log"
-    mkdir -p "$temp_dir/main-source"
     printf '%s\n' "$temp_dir/main-source"
 }
-install_validated_source() {
+atomic_publish_source() {
+    mkdir -p "$AC_INSTALL_DIR"
     cat > "$AC_INSTALL_DIR/ac.sh" <<'EOF'
 #!/bin/bash
 printf '%s\n' install >> "$MAIN_CALL_LOG"

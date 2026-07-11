@@ -29,7 +29,7 @@
 - 安装目录是尚不存在的绝对路径。脚本不会覆盖已有目录，也不会自动备份其中的数据。
 - 依赖安装使用操作系统当前配置的软件源，不会改写软件源配置。
 
-下载源码、客户端数据或容器镜像时，脚本可能在直连失败后使用 `mirrors.conf` 中的代理或加速源。这些代理属于下载源的信任边界，当前下载流程没有固定摘要校验；高安全环境建议保持直连，或在使用前自行审核下载内容和代理服务。
+首次运行 `install.sh` 时，安装脚本使用内置代理链下载项目源码归档；这与安装完成后用于客户端数据、源码和容器镜像下载的 `mirrors.conf` 是两套独立配置。首次安装默认先访问 GitHub 原站，失败后依次回退到 `https://gh-proxy.com/`、`https://gh.llkk.cc/`、`https://gh.idayer.com/` 和 `https://ghproxy.net/`。这些代理属于下载源的信任边界，当前下载流程没有固定摘要校验。
 
 ## 使用方法
 
@@ -52,6 +52,14 @@ AC_INSTALL_DIR=/opt/acore bash <(wget -qO- https://github.com/rukiy/AzerothCore-
 ```bash
 bash <(curl -fsSL https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
 ```
+
+高安全环境可禁止首次安装的内置代理回退，仅访问 GitHub 原站：
+
+```bash
+AC_INSTALL_DIRECT_ONLY=1 bash <(curl -fsSL https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
+```
+
+此模式下，项目源码归档从 GitHub 原站下载失败时会直接退出，不再尝试四个代理地址。
 
 如果已经下载好项目，也可以在项目目录中执行：
 
