@@ -13,6 +13,8 @@ create_docker_stub() {
     local compose_status="$3"
     local buildx_status="$4"
     local info_error="${5:-}"
+    local compose_error="${6:-}"
+    local buildx_error="${7:-}"
 
     mkdir -p "$bin_dir"
     cat > "$bin_dir/docker" <<EOF
@@ -23,8 +25,14 @@ case "\$*" in
         [ -z '$info_error' ] || printf '%s\n' '$info_error' >&2
         exit $info_status
         ;;
-    "compose version") exit $compose_status ;;
-    "buildx version") exit $buildx_status ;;
+    "compose version")
+        [ -z '$compose_error' ] || printf '%s\n' '$compose_error' >&2
+        exit $compose_status
+        ;;
+    "buildx version")
+        [ -z '$buildx_error' ] || printf '%s\n' '$buildx_error' >&2
+        exit $buildx_status
+        ;;
     *) exit 99 ;;
 esac
 EOF
@@ -36,6 +44,7 @@ assert_check_fails() {
     local manager="$2"
     local expected_message="$3"
     local expected_calls="$4"
+    local expected_diagnostic="${5:-}"
     local output
     local status
 
@@ -56,6 +65,9 @@ assert_check_fails() {
     assert_contains "$output" "docker info" "帮助应列出 daemon 检查命令"
     assert_contains "$output" "docker compose version" "帮助应列出 Compose 检查命令"
     assert_contains "$output" "docker buildx version" "帮助应列出 Buildx 检查命令"
+    if [ -n "$expected_diagnostic" ]; then
+        assert_contains "$output" "$expected_diagnostic" "应在分类提示后原样输出 Docker 诊断"
+    fi
     assert_eq "$expected_calls" "$(<"$docker_call_log")" "Docker 检查应按固定顺序执行并立即失败"
 }
 
@@ -67,24 +79,31 @@ mkdir -p "$no_docker_bin"
 assert_check_fails "$no_docker_bin" apt "未找到 docker 命令" ""
 
 permission_failure_bin="$temp_dir/permission-failure/bin"
-create_docker_stub "$permission_failure_bin" 1 0 0 "permission denied while trying to connect to the Docker daemon socket"
-assert_check_fails "$permission_failure_bin" apt "无权访问 Docker daemon" "info"
+permission_error="permission denied while trying to connect to the Docker daemon socket"
+create_docker_stub "$permission_failure_bin" 1 0 0 "$permission_error"
+assert_check_fails "$permission_failure_bin" apt "无权访问 Docker daemon" "info" $'错误：无权访问 Docker daemon\npermission denied while trying to connect to the Docker daemon socket'
 
 daemon_failure_bin="$temp_dir/daemon-failure/bin"
-create_docker_stub "$daemon_failure_bin" 1 0 0 "Cannot connect to the Docker daemon. Is the docker daemon running?"
-assert_check_fails "$daemon_failure_bin" apt "Docker daemon 未运行或 context 不可达" "info"
+daemon_error="Cannot connect to the Docker daemon. Is the docker daemon running?"
+create_docker_stub "$daemon_failure_bin" 1 0 0 "$daemon_error"
+assert_check_fails "$daemon_failure_bin" apt "Docker daemon 未运行或 context 不可达" "info" $'错误：Docker daemon 未运行或 context 不可达\nCannot connect to the Docker daemon. Is the docker daemon running?'
+
+daemon_running_other_bin="$temp_dir/daemon-running-other/bin"
+daemon_running_other_error="daemon running health probe returned an unsupported response"
+create_docker_stub "$daemon_running_other_bin" 1 0 0 "$daemon_running_other_error"
+assert_check_fails "$daemon_running_other_bin" apt "Docker daemon 访问失败" "info" $'错误：Docker daemon 访问失败\ndaemon running health probe returned an unsupported response'
 
 unknown_info_failure_bin="$temp_dir/unknown-info-failure/bin"
 create_docker_stub "$unknown_info_failure_bin" 1 0 0 "测试中的未知 Docker 错误"
-assert_check_fails "$unknown_info_failure_bin" apt "测试中的未知 Docker 错误" "info"
+assert_check_fails "$unknown_info_failure_bin" apt "Docker daemon 访问失败" "info" $'错误：Docker daemon 访问失败\n测试中的未知 Docker 错误'
 
 compose_failure_bin="$temp_dir/compose-failure/bin"
-create_docker_stub "$compose_failure_bin" 0 1 0
-assert_check_fails "$compose_failure_bin" apt "Docker Compose 不可用" $'info\ncompose version'
+create_docker_stub "$compose_failure_bin" 0 1 0 "" "compose plugin initialization failed"
+assert_check_fails "$compose_failure_bin" apt "Docker Compose 不可用" $'info\ncompose version' $'错误：Docker Compose 不可用\ncompose plugin initialization failed'
 
 buildx_failure_bin="$temp_dir/buildx-failure/bin"
-create_docker_stub "$buildx_failure_bin" 0 0 1
-assert_check_fails "$buildx_failure_bin" dnf "Docker Buildx 不可用" $'info\ncompose version\nbuildx version'
+create_docker_stub "$buildx_failure_bin" 0 0 1 "" "" "buildx plugin initialization failed"
+assert_check_fails "$buildx_failure_bin" dnf "Docker Buildx 不可用" $'info\ncompose version\nbuildx version' $'错误：Docker Buildx 不可用\nbuildx plugin initialization failed'
 
 success_bin="$temp_dir/success/bin"
 create_docker_stub "$success_bin" 0 0 0

@@ -213,8 +213,12 @@ check_bootstrap_commands() {
 
 print_docker_help() {
     local reason="$1"
+    local diagnostic="${2:-}"
 
-    echo "错误：$reason" >&2
+    printf '错误：%s\n' "$reason" >&2
+    if [ "$#" -ge 2 ]; then
+        printf '%s\n' "$diagnostic" >&2
+    fi
     case "$AC_PACKAGE_MANAGER" in
         apt)
             echo "请按 Docker 官方 Ubuntu/Debian 安装文档配置 Docker Engine：" >&2
@@ -234,6 +238,8 @@ print_docker_help() {
 
 check_docker_environment() {
     local info_output
+    local compose_output
+    local buildx_output
     local reason
 
     if ! command -v docker >/dev/null 2>&1; then
@@ -246,24 +252,24 @@ check_docker_environment() {
             *permission\ denied*|*access\ denied*)
                 reason="无权访问 Docker daemon"
                 ;;
-            *cannot\ connect*|*daemon\ running*|*connection\ refused*)
+            *cannot\ connect*|*is\ the\ docker\ daemon\ running\?*|*connection\ refused*|*error\ during\ connect*|*failed\ to\ connect*)
                 reason="Docker daemon 未运行或 context 不可达"
                 ;;
             *)
-                reason="Docker daemon 检查失败: $info_output"
+                reason="Docker daemon 访问失败"
                 ;;
         esac
-        print_docker_help "$reason"
+        print_docker_help "$reason" "$info_output"
         return 1
     fi
 
-    if ! docker compose version >/dev/null 2>&1; then
-        print_docker_help "Docker Compose 不可用"
+    if ! compose_output="$(docker compose version 2>&1)"; then
+        print_docker_help "Docker Compose 不可用" "$compose_output"
         return 1
     fi
 
-    if ! docker buildx version >/dev/null 2>&1; then
-        print_docker_help "Docker Buildx 不可用"
+    if ! buildx_output="$(docker buildx version 2>&1)"; then
+        print_docker_help "Docker Buildx 不可用" "$buildx_output"
         return 1
     fi
 }
