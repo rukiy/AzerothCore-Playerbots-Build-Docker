@@ -11,9 +11,55 @@
 
 适合想快速搭建自用 WotLK 服务端、减少手工配置步骤，并在安装过程中自动处理国内网络加速和内存规划的场景。
 
+## 安装要求
+
+支持以下 64 位 Linux 发行版：
+
+| 发行版 | 支持版本 |
+| --- | --- |
+| Ubuntu | 22.04、24.04 |
+| Debian | 12、13 |
+| Rocky Linux | 9、10（Rocky Linux 10 容器验证使用官方 `rockylinux/rockylinux:10` 镜像） |
+| AlmaLinux | 9、10 |
+
+安装前请确认：
+
+- 使用 `root` 用户执行安装脚本。
+- Docker Engine 已安装并启动，同时已安装 Docker Compose v2 和 Docker Buildx。
+- 安装目录是尚不存在的绝对路径。脚本不会覆盖已有目录，也不会自动备份其中的数据。
+- 依赖安装使用操作系统当前配置的软件源，不会改写软件源配置。
+
+首次运行 `install.sh` 时，安装脚本使用内置代理链下载项目源码归档；这与安装完成后用于客户端数据、源码和容器镜像下载的 `mirrors.conf` 是两套独立配置。首次安装默认先访问 GitHub 原站，失败后依次回退到 `https://gh-proxy.com/`、`https://gh.llkk.cc/`、`https://gh.idayer.com/` 和 `https://ghproxy.net/`。这些代理属于下载源的信任边界，当前下载流程没有固定摘要校验。
+
 ## 使用方法
 
 需要 root 权限执行：
+
+```bash
+bash <(wget -qO- https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
+```
+
+这条命令会把项目下载到当前用户的 `~/acore`，然后自动执行安装。也可以指定安装目录：
+
+```bash
+AC_INSTALL_DIR=/opt/acore bash <(wget -qO- https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
+```
+
+如果服务器没有 `wget`，也可以使用 `curl`：
+
+```bash
+bash <(curl -fsSL https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
+```
+
+高安全环境可禁止首次安装的内置代理回退，仅访问 GitHub 原站：
+
+```bash
+AC_INSTALL_DIRECT_ONLY=1 bash <(curl -fsSL https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
+```
+
+此模式下，项目源码归档从 GitHub 原站下载失败时会直接退出，不再尝试四个代理地址。
+
+如果已经下载好项目，也可以在项目目录中执行：
 
 ```bash
 ./ac.sh install
