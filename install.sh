@@ -5,39 +5,180 @@ AC_INSTALL_DIR="${AC_INSTALL_DIR:-$HOME/acore}"
 AC_INSTALL_BRANCH="${AC_INSTALL_BRANCH:-main}"
 AC_INSTALL_REPO="${AC_INSTALL_REPO:-rukiy/AzerothCore-Playerbots-Build-Docker}"
 AC_INSTALL_TMP_DIR="${AC_INSTALL_TMP_DIR:-/tmp/acore-installer}"
+AC_OS_RELEASE_FILE="${AC_OS_RELEASE_FILE:-/etc/os-release}"
+AC_OS_ID="${AC_OS_ID:-}"
+AC_OS_VERSION_ID="${AC_OS_VERSION_ID:-}"
+AC_PACKAGE_MANAGER="${AC_PACKAGE_MANAGER:-}"
 
-install_bootstrap_dependencies() {
-    if ! command -v apt-get >/dev/null 2>&1; then
+print_supported_platforms() {
+    echo "支持列表：Ubuntu 22.04/24.04、Debian 12/13、Rocky Linux 9/10、AlmaLinux 9/10" >&2
+}
+
+detect_platform() {
+    local ID=""
+    local VERSION_ID=""
+    local major_version
+
+    if [ ! -r "$AC_OS_RELEASE_FILE" ]; then
+        echo "错误：无法读取系统信息文件: $AC_OS_RELEASE_FILE" >&2
+        print_supported_platforms
         return 1
     fi
 
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y --no-install-recommends ca-certificates curl wget unzip
+    # os-release 是发行版提供的 shell 变量文件，加载后只复制所需字段。
+    source "$AC_OS_RELEASE_FILE"
+    AC_OS_ID="${ID,,}"
+    AC_OS_VERSION_ID="$VERSION_ID"
+    major_version="${AC_OS_VERSION_ID%%.*}"
+
+    case "$AC_OS_ID" in
+        ubuntu)
+            case "$AC_OS_VERSION_ID" in
+                22.04|24.04) AC_PACKAGE_MANAGER="apt" ;;
+                *) AC_PACKAGE_MANAGER="" ;;
+            esac
+            ;;
+        debian)
+            case "$AC_OS_VERSION_ID" in
+                12|13) AC_PACKAGE_MANAGER="apt" ;;
+                *) AC_PACKAGE_MANAGER="" ;;
+            esac
+            ;;
+        rocky|almalinux)
+            case "$major_version" in
+                9|10) AC_PACKAGE_MANAGER="dnf" ;;
+                *) AC_PACKAGE_MANAGER="" ;;
+            esac
+            ;;
+        *)
+            AC_PACKAGE_MANAGER=""
+            ;;
+    esac
+
+    case "$AC_PACKAGE_MANAGER" in
+        apt|dnf)
+            return 0
+            ;;
+        *)
+            echo "错误：检测到系统 $AC_OS_ID $AC_OS_VERSION_ID，当前不受支持" >&2
+            print_supported_platforms
+            return 1
+            ;;
+    esac
 }
 
-need_command() {
+bootstrap_command_names() {
+    printf '%s\n' curl wget unzip awk sed find free sha256sum realpath mktemp
+}
+
+ca_certificates_available() {
+    local package_status
+
+    case "$AC_PACKAGE_MANAGER" in
+        apt)
+            command -v dpkg-query >/dev/null 2>&1 || return 1
+            package_status="$(dpkg-query -W -f='${Status}' ca-certificates 2>/dev/null)" || return 1
+            [ "$package_status" = "install ok installed" ]
+            ;;
+        dnf)
+            command -v rpm >/dev/null 2>&1 && rpm -q ca-certificates >/dev/null 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+bootstrap_commands_available() {
+    local command_name
+
+    while IFS= read -r command_name; do
+        command -v "$command_name" >/dev/null 2>&1 || return 1
+    done < <(bootstrap_command_names)
+
+    ca_certificates_available
+}
+
+bootstrap_package_for_command() {
+    local command_name="$1"
+
+    case "$command_name" in
+        curl|wget|unzip|sed)
+            printf '%s\n' "$command_name"
+            ;;
+        awk)
+            printf '%s\n' gawk
+            ;;
+        find)
+            printf '%s\n' findutils
+            ;;
+        free)
+            [ "$AC_PACKAGE_MANAGER" = apt ] && printf '%s\n' procps || printf '%s\n' procps-ng
+            ;;
+        sha256sum|realpath|mktemp)
+            printf '%s\n' coreutils
+            ;;
+    esac
+}
+
+install_bootstrap_dependencies() {
+    local packages=()
+    local command_name
+    local package_name
+    local existing_package
+    local found
+
+    if ! ca_certificates_available; then
+        packages+=(ca-certificates)
+    fi
+
+    while IFS= read -r command_name; do
+        if command -v "$command_name" >/dev/null 2>&1; then
+            continue
+        fi
+
+        package_name="$(bootstrap_package_for_command "$command_name")"
+        found=false
+        for existing_package in "${packages[@]}"; do
+            if [ "$existing_package" = "$package_name" ]; then
+                found=true
+                break
+            fi
+        done
+        [ "$found" = true ] || packages+=("$package_name")
+    done < <(bootstrap_command_names)
+
+    [ "${#packages[@]}" -gt 0 ] || return 0
+
+    case "$AC_PACKAGE_MANAGER" in
+        apt)
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y --no-install-recommends "${packages[@]}"
+            ;;
+        dnf)
+            dnf install -y "${packages[@]}"
+            ;;
+        *)
+            echo "错误：未知包管理器: $AC_PACKAGE_MANAGER" >&2
+            return 1
+            ;;
+    esac
+}
+
+check_bootstrap_commands() {
     local missing=()
     local command_name
 
-    if ! command -v curl >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
-        install_bootstrap_dependencies || true
-    fi
+    while IFS= read -r command_name; do
+        command -v "$command_name" >/dev/null 2>&1 || missing+=("$command_name")
+    done < <(bootstrap_command_names)
 
-    for command_name in unzip awk sed; do
-        if ! command -v "$command_name" >/dev/null 2>&1; then
-            missing+=("$command_name")
-        fi
-    done
-
-    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-        missing+=("curl或wget")
-    fi
+    ca_certificates_available || missing+=("ca-certificates")
 
     if [ "${#missing[@]}" -gt 0 ]; then
-        echo "错误：缺少必要命令: ${missing[*]}" >&2
-        echo "请先安装依赖，例如: apt-get update && apt-get install -y curl wget unzip" >&2
-        exit 1
+        echo "错误：安装后仍缺少必要命令: ${missing[*]}" >&2
+        return 1
     fi
 }
 
@@ -128,7 +269,11 @@ main() {
         exit 1
     fi
 
-    need_command
+    detect_platform
+    if ! bootstrap_commands_available; then
+        install_bootstrap_dependencies
+    fi
+    check_bootstrap_commands
     mkdir -p "$AC_INSTALL_TMP_DIR"
     download_archive "$archive_file"
     extract_archive "$archive_file" "$extract_dir"
