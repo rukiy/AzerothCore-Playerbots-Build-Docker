@@ -461,6 +461,7 @@ download_archive() {
     echo "错误：源码压缩包下载失败" >&2
     echo "已尝试地址：" >&2
     printf '  %s\n' "${attempted[@]}" >&2
+    printf '最后状态：%s\n' "$status" >&2
     [ -z "$last_error" ] || printf '最后一次错误：\n%s\n' "$last_error" >&2
     rm -f -- "${output_file}.part"
     return "$status"

@@ -191,6 +191,7 @@ test_download_fallback() {
         assert_contains "$messages" "$url" "错误汇总应列出全部已尝试地址"
     done < <(download_candidates)
     assert_contains "$messages" "最终错误:" "错误汇总应保留最后一次下载错误"
+    assert_contains "$messages" "最后状态：29" "错误汇总应包含最后一次下载状态"
     assert_eq "5" "$(wc -l < "$calls" | tr -d ' ')" "全部失败时应尝试五个地址"
     [ ! -e "$output.part" ] || fail "全部失败不得残留 .part 文件"
     unset -f fetch_url
