@@ -51,6 +51,21 @@ AC_INSTALL_DIR=/opt/acore bash <(wget -qO- https://github.com/rukiy/AzerothCore-
 bash <(curl -fsSL https://github.com/rukiy/AzerothCore-Playerbots-Build-Docker/raw/main/install.sh)
 ```
 
+GitHub 访问较慢时，可任选一个已验证的加速地址：
+
+```bash
+# gh-proxy.com
+bash <(curl -fsSL 'https://gh-proxy.com/https://raw.githubusercontent.com/rukiy/AzerothCore-Playerbots-Build-Docker/main/install.sh')
+
+# gh.idayer.com
+bash <(curl -fsSL 'https://gh.idayer.com/https://raw.githubusercontent.com/rukiy/AzerothCore-Playerbots-Build-Docker/main/install.sh')
+
+# ghproxy.net
+bash <(curl -fsSL 'https://ghproxy.net/https://raw.githubusercontent.com/rukiy/AzerothCore-Playerbots-Build-Docker/main/install.sh')
+```
+
+以上地址由第三方代理提供，代理服务属于下载源的信任边界。
+
 高安全环境可禁止首次安装的内置代理回退，仅访问 GitHub 原站：
 
 ```bash
