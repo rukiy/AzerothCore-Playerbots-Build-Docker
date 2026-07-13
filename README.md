@@ -11,6 +11,27 @@
 
 适合想快速搭建自用 WotLK 服务端、减少手工配置步骤，并在安装过程中自动处理国内网络加速和内存规划的场景。
 
+## 集成模块
+
+项目默认下载、编译并启用以下 AzerothCore 模块：
+
+| 模块 | 仓库 | 主要用途 |
+| --- | --- | --- |
+| Playerbots | [`liyunfan1223/mod-playerbots`](https://github.com/liyunfan1223/mod-playerbots) | 提供玩家机器人系统 |
+| Player Bot Level Brackets | [`DustinHendrickson/mod-player-bot-level-brackets`](https://github.com/DustinHendrickson/mod-player-bot-level-brackets) | 按等级段管理 Playerbots |
+| AoE Loot | [`azerothcore/mod-aoe-loot`](https://github.com/azerothcore/mod-aoe-loot) | 提供范围拾取功能 |
+| Individual Progression | [`ZhengPeiRu21/mod-individual-progression`](https://github.com/ZhengPeiRu21/mod-individual-progression) | 提供个人进度控制功能 |
+| Learn Spells | [`noisiver/mod-learnspells`](https://github.com/noisiver/mod-learnspells) | 自动学习符合条件的技能 |
+| Fireworks on Level | [`azerothcore/mod-fireworks-on-level`](https://github.com/azerothcore/mod-fireworks-on-level) | 升级时播放烟花效果 |
+| ALE | [`azerothcore/mod-ale`](https://github.com/azerothcore/mod-ale) | 提供 Lua 脚本扩展能力 |
+| AutoBalance | [`azerothcore/mod-autobalance`](https://github.com/azerothcore/mod-autobalance) | 根据队伍和玩家数量动态调整副本难度 |
+| Transmog | [`azerothcore/mod-transmog`](https://github.com/azerothcore/mod-transmog) | 提供装备幻化功能 |
+| AH Bot Plus | [`NathanHandley/mod-ah-bot-plus`](https://github.com/NathanHandley/mod-ah-bot-plus) | 增强拍卖行机器人功能 |
+| Congrats on Level | [`azerothcore/mod-congrats-on-level`](https://github.com/azerothcore/mod-congrats-on-level) | 玩家升级时发送祝贺消息 |
+| Cross-Faction Battlegrounds | [`azerothcore/mod-cfbg`](https://github.com/azerothcore/mod-cfbg) | 支持跨阵营战场匹配 |
+
+默认模块列表可通过 `ac.conf` 中的 `ACORE_MODULE_REPOS` 调整。
+
 ## 安装要求
 
 支持以下 64 位 Linux 发行版：
@@ -202,9 +223,30 @@ ACORE_SOURCE_BRANCH="Playerbot"
 
 # 模块仓库列表，格式为 owner/repo。
 ACORE_MODULE_REPOS=(
+    # Playerbots 主模块。
     liyunfan1223/mod-playerbots
+    # Playerbots 等级段模块。
     DustinHendrickson/mod-player-bot-level-brackets
+    # 范围拾取模块。
     azerothcore/mod-aoe-loot
+    # 个人进度模块。
+    ZhengPeiRu21/mod-individual-progression
+    # 自动学习技能模块。
+    noisiver/mod-learnspells
+    # 升级烟花模块。
+    azerothcore/mod-fireworks-on-level
+    # ALE Lua 扩展模块。
+    azerothcore/mod-ale
+    # 自动平衡模块。
+    azerothcore/mod-autobalance
+    # 幻化模块。
+    azerothcore/mod-transmog
+    # 拍卖行机器人增强模块。
+    NathanHandley/mod-ah-bot-plus
+    # 升级祝贺模块。
+    azerothcore/mod-congrats-on-level
+    # 跨阵营战场模块。
+    azerothcore/mod-cfbg
 )
 ```
 
