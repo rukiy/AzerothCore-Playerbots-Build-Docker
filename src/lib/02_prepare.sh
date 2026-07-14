@@ -93,6 +93,10 @@ download_log_output() {
     done
 }
 
+run_download_stage() {
+    "$@" 3>&1 4>&2 >/dev/null 2> >(download_log_output)
+}
+
 download_success() {
     local item_name="$1"
     local source="$2"
@@ -1055,9 +1059,9 @@ prepare_downloads() {
     load_mirror_preferences >/dev/null 2> >(mirror_log_output)
     probe_download_mirrors_for_missing_cache
     log_selected_mirrors_to_download_log
-    prepare_source_archives >/dev/null 2> >(download_log_output)
-    prepare_client_data_archive >/dev/null 2> >(download_log_output)
-    prepare_runtime_images >/dev/null 2> >(download_log_output)
+    run_download_stage prepare_source_archives
+    run_download_stage prepare_client_data_archive
+    run_download_stage prepare_runtime_images
 }
 
 probe_mirrors_only() {

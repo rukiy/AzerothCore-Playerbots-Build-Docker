@@ -171,4 +171,31 @@ docker() {
 output="$(pull_docker_image 'docker.io/library/test:latest' 3>&1 4>&1)"
 assert_contains "$output" "[OK] 下载: Docker 镜像 完成: docker.io/library/test:latest -> docker.io/library/test:latest"
 
+successful_download_stage() {
+    echo "过程标准输出"
+    echo "过程标准错误" >&2
+    download_success "AzerothCore 源码" "https://example/source.zip" "/cache/source.zip"
+}
+
+output="$(run_download_stage successful_download_stage 2>&1)"
+assert_contains "$output" "[OK] 下载: AzerothCore 源码 完成: https://example/source.zip -> /cache/source.zip"
+assert_not_contains "$output" "过程标准输出"
+assert_not_contains "$output" "过程标准错误"
+
+failed_download_stage() {
+    echo "过程标准输出"
+    echo "过程标准错误" >&2
+    download_failure "/cache/source.zip" "https://last.example/source.zip" "curl: (22) final error"
+    return 1
+}
+
+if output="$(run_download_stage failed_download_stage 2>&1)"; then
+    fail "下载阶段失败时包装器仍返回成功"
+fi
+assert_contains "$output" "[ERROR] 下载失败: /cache/source.zip"
+assert_contains "$output" "最后下载源: https://last.example/source.zip"
+assert_contains "$output" "curl: (22) final error"
+assert_not_contains "$output" "过程标准输出"
+assert_not_contains "$output" "过程标准错误"
+
 echo "test_download_reporting 通过"
