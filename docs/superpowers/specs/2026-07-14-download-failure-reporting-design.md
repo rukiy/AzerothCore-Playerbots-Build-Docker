@@ -2,7 +2,7 @@
 
 ## 目标
 
-`ac.sh install` 或 `ac.sh update` 的下载阶段结束时，将最终结果同时输出到控制台和主日志 `ac.log`，并继续在 `downloads.log` 中保留全部候选源的尝试记录。
+`ac.sh install` 或 `ac.sh update` 的下载阶段执行过程中，每个对象成功或最终失败时，将结果同时输出到控制台和主日志 `ac.log`，并继续在 `downloads.log` 中保留全部候选源的尝试记录。
 
 ## 输出行为
 
