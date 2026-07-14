@@ -54,6 +54,9 @@ curl() {
         *success*)
             printf 'archive' > "$output_file"
             ;;
+        *invalid-zip*)
+            printf '这不是有效的 ZIP 文件' > "$output_file"
+            ;;
         *first*)
             echo "curl: (28) first source timed out" >&2
             return 28
@@ -88,6 +91,20 @@ assert_not_contains "$output" "first source timed out"
 download_log_text="$(<"$DOWNLOAD_LOG_FILE")"
 assert_contains "$download_log_text" "first source timed out"
 assert_contains "$download_log_text" "last source returned 503"
+
+: > "$DOWNLOAD_LOG_FILE"
+invalid_zip_file="$TEST_TMP_DIR/invalid.zip"
+if output="$(DOWNLOAD_FILE_VALIDATOR=validate_zip_file \
+    download_cached_file "$invalid_zip_file" "" "客户端数据" \
+    '|https://last.example/invalid-zip.zip' 3>&1 4>&1)"; then
+    fail "损坏 ZIP 文件通过了下载校验"
+fi
+assert_contains "$output" "最后下载源: https://last.example/invalid-zip.zip"
+assert_contains "$output" "End-of-central-directory signature not found"
+
+download_log_text="$(<"$DOWNLOAD_LOG_FILE")"
+assert_contains "$download_log_text" "https://last.example/invalid-zip.zip"
+assert_contains "$download_log_text" "End-of-central-directory signature not found"
 
 client_data_latest_candidates() {
     printf '%s\n' \

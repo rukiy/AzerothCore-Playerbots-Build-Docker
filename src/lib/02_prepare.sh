@@ -310,9 +310,10 @@ download_cached_file() {
             --speed-limit "${DOWNLOAD_LOW_SPEED_LIMIT:-32768}" \
             --speed-time "${DOWNLOAD_LOW_SPEED_TIME:-60}" \
             "$candidate_url" -o "$tmp_file" 2>&1)"; then
-            if [ -n "$validator" ] && ! "$validator" "$tmp_file"; then
+            if [ -n "$validator" ] && ! output="$("$validator" "$tmp_file" 2>&1)"; then
                 last_source="$candidate_url"
-                last_error="下载文件校验失败"
+                last_error="${output:-下载文件校验失败}"
+                [ -n "$output" ] && printf '%s\n' "$output" | download_log_output
                 download_log "[WARN] 下载文件校验失败，切换下一个源: $candidate_url"
                 rm -f "$tmp_file"
                 continue
@@ -644,7 +645,7 @@ prepare_client_data_archive() {
 }
 
 validate_zip_file() {
-    unzip -tq "$1" >/dev/null 2>&1
+    unzip -tq "$1"
 }
 
 extract_source_archive() {
