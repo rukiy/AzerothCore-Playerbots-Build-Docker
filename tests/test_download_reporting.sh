@@ -133,6 +133,84 @@ assert_contains "$output" "最后下载源: https://last.example/releases/latest
 assert_contains "$output" "curl: (22) last latest returned 502"
 assert_not_contains "$output" "first latest timed out"
 
+test_client_latest_success_chain() (
+    local actual_url="https://assets.example/client-data-v19.zip"
+    local output_file="$TEST_TMP_DIR/client-latest-success.out"
+    local target_file
+    local expected_output
+    local output
+
+    DOWNLOAD_LOG_DIR="$TEST_TMP_DIR/client-latest-logs"
+    DOWNLOAD_LOG_FILE="$DOWNLOAD_LOG_DIR/downloads.log"
+    DOWNLOAD_CLIENT_DIR="$TEST_TMP_DIR/client-latest-cache"
+    CLIENT_DATA_VERSION=latest
+    CLIENT_DATA_DOWNLOAD_URL="$actual_url"
+    AC_CURL_COMMAND=fake_latest_success_curl
+    GITHUB_RELEASE_ASSET_MIRRORS=()
+    unset AC_CLIENT_DATA_RESOLVED_VERSION
+    mkdir -p "$DOWNLOAD_LOG_DIR"
+    : > "$DOWNLOAD_LOG_FILE"
+
+    client_data_latest_candidates() {
+        printf '%s\n' \
+            '|https://first.example/releases/latest' \
+            '|https://last.example/releases/latest'
+    }
+
+    fake_latest_success_curl() {
+        local url="${*: -1}"
+
+        if [[ "$url" == *first* ]]; then
+            echo "curl: (28) first latest chain timed out" >&2
+            return 28
+        fi
+        printf 'HTTP/2 302\nLocation: https://github.com/wowgaming/client-data/releases/tag/v19\n'
+    }
+
+    curl() {
+        local output_file_path=""
+        local url=""
+
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+                -o)
+                    output_file_path="$2"
+                    shift 2
+                    ;;
+                http*)
+                    url="$1"
+                    shift
+                    ;;
+                *)
+                    shift
+                    ;;
+            esac
+        done
+
+        [ "$url" = "$actual_url" ] || fail "下载地址不符合配置: $url"
+        printf 'client data' > "$output_file_path"
+    }
+
+    validate_zip_file() {
+        return 0
+    }
+
+    target_file="$DOWNLOAD_CLIENT_DIR/latest.zip"
+    exec 5> "$output_file"
+    prepare_client_data_archive >&5 2>&1 3>&1 4>&1
+    exec 5>&-
+    output="$(<"$output_file")"
+    expected_output="[OK] 下载: 客户端数据 完成: $actual_url -> $target_file"
+
+    [ "${AC_CLIENT_DATA_RESOLVED_VERSION:-}" = "v19" ] || \
+        fail "客户端最新版本解析结果错误: ${AC_CLIENT_DATA_RESOLVED_VERSION:-未设置}"
+    [ "$output" = "$expected_output" ] || fail "客户端数据成功输出不唯一或格式错误: $output"
+    assert_not_contains "$output" "客户端数据最新版本"
+    assert_contains "$(<"$DOWNLOAD_LOG_FILE")" "curl: (28) first latest chain timed out"
+)
+
+test_client_latest_success_chain
+
 dockerImagePullCandidates() {
     printf '%s\n' \
         '|mirror.example/first:latest' \
