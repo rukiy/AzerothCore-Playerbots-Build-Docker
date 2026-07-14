@@ -6,6 +6,7 @@ SHELL_FILE_LIST="$(mktemp)"
 trap 'rm -f "$SHELL_FILE_LIST"' EXIT
 
 bash "$ROOT_DIR/tests/test_download_reporting.sh"
+bash "$ROOT_DIR/tests/test_download_logging_integration.sh"
 
 printf '%s\0' "$ROOT_DIR/ac.sh" "$ROOT_DIR/install.sh" > "$SHELL_FILE_LIST"
 find "$ROOT_DIR/src" "$ROOT_DIR/tests" -type f -name '*.sh' -print0 >> "$SHELL_FILE_LIST"
