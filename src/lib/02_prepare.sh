@@ -93,6 +93,28 @@ download_log_output() {
     done
 }
 
+download_success() {
+    local item_name="$1"
+    local source="$2"
+    local target="$3"
+
+    printf '[OK] 下载: %s 完成: %s -> %s\n' "$item_name" "$source" "$target" >&3
+}
+
+download_failure() {
+    local target="$1"
+    local last_source="$2"
+    local detail="$3"
+
+    download_log "[ERROR] 下载失败: $target"
+    {
+        printf '[ERROR] 下载失败: %s\n' "$target"
+        printf '最后下载源: %s\n' "$last_source"
+        printf '具体错误:\n'
+        printf '%s\n' "$detail"
+    } >&4
+}
+
 mirror_in_candidates() {
     local preferred="$1"
     shift
@@ -250,14 +272,17 @@ set_mirror_preference() {
 download_cached_file() {
     local target_file="$1"
     local success_var="${2:-}"
+    local item_name="$3"
     local success_prefix=""
     local validator="${DOWNLOAD_FILE_VALIDATOR:-}"
-    shift 2
+    local last_source="无可用下载源"
+    local last_error="未配置可用下载地址"
+    shift 3
 
     local candidate candidate_url tmp_file output size
     if [ -f "$target_file" ]; then
-        echo "已存在: $target_file"
         download_log "已存在: $target_file"
+        download_success "$item_name" "本地缓存" "$target_file"
         return 0
     fi
 
@@ -282,25 +307,29 @@ download_cached_file() {
             --speed-time "${DOWNLOAD_LOW_SPEED_TIME:-60}" \
             "$candidate_url" -o "$tmp_file" 2>&1)"; then
             if [ -n "$validator" ] && ! "$validator" "$tmp_file"; then
+                last_source="$candidate_url"
+                last_error="下载文件校验失败"
                 download_log "[WARN] 下载文件校验失败，切换下一个源: $candidate_url"
                 rm -f "$tmp_file"
                 continue
             fi
             mv "$tmp_file" "$target_file"
             size="$(du -h "$target_file" | awk '{print $1}')"
-            echo "[OK] $target_file ($size)"
             download_log "[OK] $target_file ($size)"
             if [ -n "$success_var" ] && [ -n "$success_prefix" ]; then
                 set_mirror_preference "$success_var" "$success_prefix" "镜像"
             fi
+            download_success "$item_name" "$candidate_url" "$target_file"
             return 0
         fi
+        last_source="$candidate_url"
+        last_error="$output"
         [ -n "$output" ] && printf '%s\n' "$output" | download_log_output
         download_log "[WARN] 下载失败或速度过低，切换下一个源: $candidate_url"
         rm -f "$tmp_file"
     done
 
-    download_log "[ERROR] 下载失败: $target_file"
+    download_failure "$target_file" "$last_source" "$last_error"
     return 1
 }
 
@@ -368,14 +397,20 @@ source_archive_download_candidates() {
 download_source_archive() {
     local repo="$1"
     local ref="${2:-}"
-    local archive_url archive_file
+    local archive_url archive_file item_name
     local candidates=()
 
     archive_url="$(source_archive_url "$repo" "$ref")"
     archive_file="$(source_archive_file "$repo" "$ref")"
     mapfile -t candidates < <(source_archive_download_candidates "$archive_url")
 
-    download_cached_file "$archive_file" AC_PREFERRED_SOURCE_ARCHIVE_MIRROR "${candidates[@]}"
+    if [ "$repo" = "$ACORE_SOURCE_REPO" ]; then
+        item_name="AzerothCore 源码"
+    else
+        item_name="$(source_repo_name "$repo") 源码"
+    fi
+
+    download_cached_file "$archive_file" AC_PREFERRED_SOURCE_ARCHIVE_MIRROR "$item_name" "${candidates[@]}"
 }
 
 prepare_source_archives() {
@@ -590,13 +625,13 @@ prepare_client_data_archive() {
     archive_file="$(client_data_archive_file)"
     if [ -f "$archive_file" ]; then
         download_log "已存在: $archive_file"
-        echo "已存在: $archive_file"
+        download_success "客户端数据" "本地缓存" "$archive_file"
         return 0
     fi
 
     resolve_client_data_version
     mapfile -t candidates < <(client_data_download_candidates)
-    DOWNLOAD_FILE_VALIDATOR=validate_zip_file download_cached_file "$archive_file" AC_PREFERRED_RELEASE_ASSET_MIRROR "${candidates[@]}"
+    DOWNLOAD_FILE_VALIDATOR=validate_zip_file download_cached_file "$archive_file" AC_PREFERRED_RELEASE_ASSET_MIRROR "客户端数据" "${candidates[@]}"
 }
 
 validate_zip_file() {
