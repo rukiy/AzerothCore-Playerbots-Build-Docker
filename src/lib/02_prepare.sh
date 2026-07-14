@@ -482,7 +482,7 @@ probe_github_client_downloads() {
             "$release_probe_url" \
             "${latest_mirrors[@]}" || true
 
-        resolve_client_data_version >/dev/null 2> >(mirror_log_output) || true
+        resolve_client_data_version >/dev/null 2> >(mirror_log_output) 4>&2 || true
     else
         AC_CLIENT_DATA_RESOLVED_VERSION="$CLIENT_DATA_VERSION"
         export AC_CLIENT_DATA_RESOLVED_VERSION
@@ -532,6 +532,8 @@ resolve_client_data_version() {
     local configured_version="${CLIENT_DATA_VERSION:-latest}"
     local latest_url="https://github.com/wowgaming/client-data/releases/latest"
     local headers latest_location candidate candidate_url success_prefix output
+    local last_source=""
+    local last_error=""
 
     if [ "$configured_version" != "latest" ]; then
         AC_CLIENT_DATA_RESOLVED_VERSION="$configured_version"
@@ -553,6 +555,7 @@ resolve_client_data_version() {
             success_prefix=""
             candidate_url="$candidate"
         fi
+        last_source="$candidate_url"
 
         download_log "解析客户端数据最新版本: $candidate_url"
         if headers="$("${AC_CURL_COMMAND:-curl}" -L -I --silent --show-error --fail \
@@ -569,17 +572,19 @@ resolve_client_data_version() {
                 fi
                 break
             fi
+            last_error="无法从响应头 Location 解析有效客户端数据版本: ${latest_location:-未返回 Location}"
             download_log "[WARN] 无法从响应头解析有效客户端数据版本: $candidate_url"
             continue
         fi
 
         output="$headers"
+        last_error="$output"
         [ -n "$output" ] && printf '%s\n' "$output" | download_log_output
         download_log "[WARN] 解析客户端数据最新版本失败，切换下一个源: $candidate_url"
     done < <(client_data_latest_candidates "$latest_url")
 
     if ! is_client_data_version "${AC_CLIENT_DATA_RESOLVED_VERSION:-}"; then
-        echo "错误: 无法从 releases/latest 解析客户端数据版本" >&2
+        download_failure "客户端数据最新版本" "${last_source:-无可用下载源}" "${last_error:-未配置可用下载地址}"
         return 1
     fi
 
@@ -897,15 +902,19 @@ pull_docker_image() {
     local candidate
     local candidate_ref candidate_mirror
     local output
+    local last_source=""
+    local last_error=""
 
     if docker image inspect "$image" >/dev/null 2>&1; then
         echo "已存在: $image"
         download_log "镜像已存在: $image"
         save_cached_docker_image "$image"
+        download_success "Docker 镜像" "本地缓存" "$image"
         return 0
     fi
 
     if load_cached_docker_image "$image"; then
+        download_success "Docker 镜像" "本地缓存" "$image"
         return 0
     fi
 
@@ -917,6 +926,7 @@ pull_docker_image() {
             candidate_mirror=""
             candidate_ref="$candidate"
         fi
+        last_source="$candidate_ref"
 
         echo "拉取镜像: $candidate_ref"
         download_log "拉取镜像: $candidate_ref"
@@ -924,10 +934,10 @@ pull_docker_image() {
             printf '%s\n' "$output" | download_log_output
             if [ "$candidate_ref" != "$image" ]; then
                 if ! output=$(docker tag "$candidate_ref" "$image" 2>&1); then
-                    echo "[ERROR] 镜像标记失败: $candidate_ref -> $image" >&2
-                    echo "$output" >&2
+                    last_error="$output"
                     printf '%s\n' "$output" | download_log_output
                     download_log "[ERROR] 镜像标记失败: $candidate_ref -> $image"
+                    download_failure "$image" "$candidate_ref" "$last_error"
                     return 1
                 fi
                 if ! output=$(docker rmi "$candidate_ref" 2>&1); then
@@ -943,14 +953,14 @@ pull_docker_image() {
                 set_mirror_preference AC_PREFERRED_DOCKER_IMAGE_PULL_MIRROR "$candidate_mirror" " Docker 镜像源"
             fi
             save_cached_docker_image "$image"
+            download_success "Docker 镜像" "$candidate_ref" "$image"
             return 0
         fi
-        echo "$output" >&2
+        last_error="$output"
         printf '%s\n' "$output" | download_log_output
     done < <(dockerImagePullCandidates "$image")
 
-    echo "[ERROR] 镜像拉取失败: $image" >&2
-    download_log "[ERROR] 镜像拉取失败: $image"
+    download_failure "$image" "${last_source:-无可用下载源}" "${last_error:-未配置可用镜像地址}"
     return 1
 }
 
