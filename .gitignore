@@ -4,3 +4,4 @@ agent.md
 downloads/
 .worktrees/
 .env
+/tests/
