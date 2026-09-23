@@ -13,7 +13,7 @@ AC_OS_VERSION_ID="${AC_OS_VERSION_ID:-}"
 AC_PACKAGE_MANAGER="${AC_PACKAGE_MANAGER:-}"
 
 print_supported_platforms() {
-    echo "支持列表：Ubuntu 22.04/24.04、Debian 12/13、Rocky Linux 9/10、AlmaLinux 9/10" >&2
+    echo "支持列表：Ubuntu、Debian、Rocky Linux、AlmaLinux（不限制版本）" >&2
 }
 
 detect_platform() {
@@ -21,7 +21,6 @@ detect_platform() {
     local value
     local id_found=false
     local version_found=false
-    local major_version
 
     if [ ! -r "$AC_OS_RELEASE_FILE" ]; then
         echo "错误：无法读取系统信息文件: $AC_OS_RELEASE_FILE" >&2
@@ -60,26 +59,12 @@ detect_platform() {
             VERSION_ID=*) AC_OS_VERSION_ID="$value" ;;
         esac
     done < "$AC_OS_RELEASE_FILE"
-    major_version="${AC_OS_VERSION_ID%%.*}"
-
     case "$AC_OS_ID" in
-        ubuntu)
-            case "$AC_OS_VERSION_ID" in
-                22.04|24.04) AC_PACKAGE_MANAGER="apt" ;;
-                *) AC_PACKAGE_MANAGER="" ;;
-            esac
-            ;;
-        debian)
-            case "$AC_OS_VERSION_ID" in
-                12|13) AC_PACKAGE_MANAGER="apt" ;;
-                *) AC_PACKAGE_MANAGER="" ;;
-            esac
+        ubuntu|debian)
+            AC_PACKAGE_MANAGER="apt"
             ;;
         rocky|almalinux)
-            case "$major_version" in
-                9|10) AC_PACKAGE_MANAGER="dnf" ;;
-                *) AC_PACKAGE_MANAGER="" ;;
-            esac
+            AC_PACKAGE_MANAGER="dnf"
             ;;
         *)
             AC_PACKAGE_MANAGER=""

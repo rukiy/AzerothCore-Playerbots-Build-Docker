@@ -164,7 +164,7 @@ test_client_latest_success_chain() (
             echo "curl: (28) first latest chain timed out" >&2
             return 28
         fi
-        printf 'HTTP/2 302\nLocation: https://github.com/wowgaming/client-data/releases/tag/v19\n'
+        printf 'HTTP/2 302\nLocation: https://github.com/wowgaming/client-data/releases/tag/v20.0\n'
     }
 
     curl() {
@@ -202,7 +202,7 @@ test_client_latest_success_chain() (
     output="$(<"$output_file")"
     expected_output="[OK] 下载: 客户端数据 完成: $actual_url -> $target_file"
 
-    [ "${AC_CLIENT_DATA_RESOLVED_VERSION:-}" = "v19" ] || \
+    [ "${AC_CLIENT_DATA_RESOLVED_VERSION:-}" = "v20.0" ] || \
         fail "客户端最新版本解析结果错误: ${AC_CLIENT_DATA_RESOLVED_VERSION:-未设置}"
     [ "$output" = "$expected_output" ] || fail "客户端数据成功输出不唯一或格式错误: $output"
     assert_not_contains "$output" "客户端数据最新版本"

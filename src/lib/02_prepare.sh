@@ -133,7 +133,7 @@ mirror_in_candidates() {
 }
 
 is_client_data_version() {
-    [[ "$1" =~ ^v[0-9]+$ ]]
+    [[ "$1" =~ ^v[0-9]+(\.[0-9]+)*$ ]]
 }
 
 ordered_mirrors() {

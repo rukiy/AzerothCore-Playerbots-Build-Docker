@@ -34,14 +34,14 @@
 
 ## 安装要求
 
-支持以下 64 位 Linux 发行版：
+支持以下 64 位 Linux 发行版，不限制具体版本号：
 
 | 发行版 | 支持版本 |
 | --- | --- |
-| Ubuntu | 22.04、24.04 |
-| Debian | 12、13 |
-| Rocky Linux | 9、10（Rocky Linux 10 容器验证使用官方 `rockylinux/rockylinux:10` 镜像） |
-| AlmaLinux | 9、10 |
+| Ubuntu | 不限制版本 |
+| Debian | 不限制版本 |
+| Rocky Linux | 不限制版本 |
+| AlmaLinux | 不限制版本 |
 
 内存建议：
 
