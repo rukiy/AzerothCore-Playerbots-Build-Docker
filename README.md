@@ -18,7 +18,6 @@
 | 模块 | 仓库 | 主要用途 |
 | --- | --- | --- |
 | Playerbots | [`liyunfan1223/mod-playerbots`](https://github.com/liyunfan1223/mod-playerbots) | 提供玩家机器人系统 |
-| Player Bot Level Brackets | [`DustinHendrickson/mod-player-bot-level-brackets`](https://github.com/DustinHendrickson/mod-player-bot-level-brackets) | 按等级段管理 Playerbots |
 | AoE Loot | [`azerothcore/mod-aoe-loot`](https://github.com/azerothcore/mod-aoe-loot) | 提供范围拾取功能 |
 | Individual Progression | [`ZhengPeiRu21/mod-individual-progression`](https://github.com/ZhengPeiRu21/mod-individual-progression) | 提供个人进度控制功能 |
 | Learn Spells | [`noisiver/mod-learnspells`](https://github.com/noisiver/mod-learnspells) | 自动学习符合条件的技能 |
@@ -225,8 +224,6 @@ ACORE_SOURCE_BRANCH="Playerbot"
 ACORE_MODULE_REPOS=(
     # Playerbots 主模块。
     liyunfan1223/mod-playerbots
-    # Playerbots 等级段模块。
-    DustinHendrickson/mod-player-bot-level-brackets
     # 范围拾取模块。
     azerothcore/mod-aoe-loot
     # 个人进度模块。
