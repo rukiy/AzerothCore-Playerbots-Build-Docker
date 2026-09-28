@@ -71,7 +71,7 @@ playerbot_accounts_for_memory() {
     elif [ "$total_mb" -lt 6144 ]; then
         echo 25
     elif [ "$total_mb" -lt 8192 ]; then
-        echo 40
+        echo 25
     elif [ "$total_mb" -lt 12288 ]; then
         echo 100
     else
@@ -87,7 +87,7 @@ playerbot_bots_for_memory() {
     elif [ "$total_mb" -lt 6144 ]; then
         echo 125
     elif [ "$total_mb" -lt 8192 ]; then
-        echo 200
+        echo 125
     elif [ "$total_mb" -lt 12288 ]; then
         echo 500
     else
