@@ -135,7 +135,7 @@ prepare_memory_plan() {
         set_default_if_empty DOCKER_BUILD_PARALLEL_JOBS "2"
         set_default_if_empty AC_DATABASE_MEMORY_LIMIT "1536m"
         set_default_if_empty AC_WORLDSERVER_MEMORY_LIMIT "3072m"
-        set_default_if_empty AC_AUTHSERVER_MEMORY_LIMIT "384m"
+        set_default_if_empty AC_AUTHSERVER_MEMORY_LIMIT "128m"
         set_default_if_empty AC_CLIENT_DATA_INIT_MEMORY_LIMIT "512m"
         set_default_if_empty AC_DATABASE_INNODB_BUFFER_POOL_SIZE "768M"
         AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT="$playerbot_accounts"
@@ -171,11 +171,11 @@ prepare_memory_plan() {
     # persistent runtime budget after initialization. Give the saved budget
     # to worldserver, which is the main memory consumer with Playerbots.
     database_mb=$((runtime_budget_mb * 25 / 100))
-    auth_mb=$((runtime_budget_mb * 8 / 100))
+    auth_mb=$((runtime_budget_mb * 3 / 100))
     client_init_mb=$((runtime_budget_mb * 12 / 100))
 
     database_mb="$(memory_clamp "$database_mb" 768 4096)"
-    auth_mb="$(memory_clamp "$auth_mb" 256 1024)"
+    auth_mb="$(memory_clamp "$auth_mb" 128 256)"
     client_init_mb="$(memory_clamp "$client_init_mb" 512 2048)"
 
     database_mb="$(memory_round_down "$database_mb" 128)"
