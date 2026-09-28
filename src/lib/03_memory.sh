@@ -77,6 +77,14 @@ prepare_memory_plan() {
         return 0
     fi
 
+    if [ "${AC_MEMORY_AUTO:-1}" = "1" ] && { [ "${AC_MEMORY_VALUES_MANAGED:-0}" = "1" ] || [ "${AC_MEMORY_PLAN_FORCE:-0}" = "1" ]; }; then
+        AC_DATABASE_MEMORY_LIMIT=""
+        AC_WORLDSERVER_MEMORY_LIMIT=""
+        AC_AUTHSERVER_MEMORY_LIMIT=""
+        AC_CLIENT_DATA_INIT_MEMORY_LIMIT=""
+        AC_DATABASE_INNODB_BUFFER_POOL_SIZE=""
+    fi
+
     local total_mb used_mb cpu_count reserved_mb dynamic_reserved_mb reserved_extra_mb build_reserved_mb build_limit_mb build_memory_per_job_mb build_memory_overhead_mb
     local runtime_reserved_mb runtime_budget_mb database_mb world_mb auth_mb client_init_mb runtime_used_mb
     local build_jobs max_jobs
@@ -199,6 +207,7 @@ write_managed_env_values() {
 
     cat >> "$tmp_file" <<EOF
 # BEGIN ACORE AUTO MEMORY
+AC_MEMORY_VALUES_MANAGED=1
 AC_MEMORY_TOTAL_MB=${AC_MEMORY_TOTAL_MB}
 AC_MEMORY_USED_MB=${AC_MEMORY_USED_MB:-}
 AC_BUILD_RESERVED_MB=${AC_BUILD_RESERVED_MB:-}
