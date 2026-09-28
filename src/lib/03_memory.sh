@@ -63,6 +63,22 @@ detect_cpu_count() {
     nproc 2>/dev/null || echo 1
 }
 
+playerbot_accounts_for_memory() {
+    local total_mb="$1"
+
+    if [ "$total_mb" -lt 4096 ]; then
+        echo 10
+    elif [ "$total_mb" -lt 6144 ]; then
+        echo 25
+    elif [ "$total_mb" -lt 8192 ]; then
+        echo 40
+    elif [ "$total_mb" -lt 12288 ]; then
+        echo 100
+    else
+        echo 150
+    fi
+}
+
 set_default_if_empty() {
     local name="$1"
     local value="$2"
@@ -83,15 +99,17 @@ prepare_memory_plan() {
         AC_AUTHSERVER_MEMORY_LIMIT=""
         AC_CLIENT_DATA_INIT_MEMORY_LIMIT=""
         AC_DATABASE_INNODB_BUFFER_POOL_SIZE=""
+        AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT=""
     fi
 
-    local total_mb used_mb cpu_count reserved_mb dynamic_reserved_mb reserved_extra_mb build_reserved_mb build_limit_mb build_memory_per_job_mb build_memory_overhead_mb
+    local total_mb used_mb cpu_count reserved_mb dynamic_reserved_mb reserved_extra_mb build_reserved_mb build_limit_mb build_memory_per_job_mb build_memory_overhead_mb playerbot_accounts
     local runtime_reserved_mb runtime_budget_mb database_mb world_mb auth_mb client_init_mb runtime_used_mb
     local build_jobs max_jobs
 
     total_mb="$(read_system_memory_mb)"
     used_mb="$(read_system_memory_used_mb)"
     cpu_count="$(detect_cpu_count)"
+    playerbot_accounts="$(playerbot_accounts_for_memory "$total_mb")"
 
     if [ "${AC_MEMORY_AUTO:-1}" = "0" ]; then
         AC_MEMORY_TOTAL_MB="$total_mb"
@@ -103,11 +121,12 @@ prepare_memory_plan() {
         set_default_if_empty AC_AUTHSERVER_MEMORY_LIMIT "384m"
         set_default_if_empty AC_CLIENT_DATA_INIT_MEMORY_LIMIT "512m"
         set_default_if_empty AC_DATABASE_INNODB_BUFFER_POOL_SIZE "768M"
+        AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT="$playerbot_accounts"
         AC_MEMORY_PLAN_READY=1
         export AC_MEMORY_TOTAL_MB AC_MEMORY_USED_MB DOCKER_BUILD_MEMORY_LIMIT DOCKER_BUILD_PARALLEL_JOBS
         export DOCKER_BUILDKIT_MAX_PARALLELISM AC_DATABASE_MEMORY_LIMIT
         export AC_WORLDSERVER_MEMORY_LIMIT AC_AUTHSERVER_MEMORY_LIMIT AC_CLIENT_DATA_INIT_MEMORY_LIMIT
-        export AC_DATABASE_INNODB_BUFFER_POOL_SIZE AC_MEMORY_PLAN_READY
+        export AC_DATABASE_INNODB_BUFFER_POOL_SIZE AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT AC_MEMORY_PLAN_READY
         return 0
     fi
 
@@ -175,19 +194,20 @@ prepare_memory_plan() {
     set_default_if_empty AC_AUTHSERVER_MEMORY_LIMIT "${auth_mb}m"
     set_default_if_empty AC_CLIENT_DATA_INIT_MEMORY_LIMIT "${client_init_mb}m"
     set_default_if_empty AC_DATABASE_INNODB_BUFFER_POOL_SIZE "$((database_mb / 2))M"
+    AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT="$playerbot_accounts"
 
     AC_MEMORY_PLAN_READY=1
     export AC_MEMORY_TOTAL_MB AC_MEMORY_USED_MB AC_BUILD_RESERVED_MB AC_RUNTIME_RESERVED_MB AC_RUNTIME_MEMORY_BUDGET_MB
     export DOCKER_BUILD_MEMORY_LIMIT DOCKER_BUILD_PARALLEL_JOBS DOCKER_BUILDKIT_MAX_PARALLELISM
     export AC_DATABASE_MEMORY_LIMIT AC_WORLDSERVER_MEMORY_LIMIT AC_AUTHSERVER_MEMORY_LIMIT
     export AC_CLIENT_DATA_INIT_MEMORY_LIMIT
-    export AC_DATABASE_INNODB_BUFFER_POOL_SIZE AC_MEMORY_PLAN_READY
+    export AC_DATABASE_INNODB_BUFFER_POOL_SIZE AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT AC_MEMORY_PLAN_READY
 }
 
 print_memory_plan() {
     prepare_memory_plan
     echo "内存规划: 总内存=${AC_MEMORY_TOTAL_MB}MB 当前已用=${AC_MEMORY_USED_MB:-未知}MB 构建保留=${AC_BUILD_RESERVED_MB:-手动}MB 构建=${DOCKER_BUILD_MEMORY_LIMIT} 构建并行=${DOCKER_BUILD_PARALLEL_JOBS} 运行预算=${AC_RUNTIME_MEMORY_BUDGET_MB:-自动}MB"
-    echo "运行限制: database=${AC_DATABASE_MEMORY_LIMIT} worldserver=${AC_WORLDSERVER_MEMORY_LIMIT} authserver=${AC_AUTHSERVER_MEMORY_LIMIT} client-data-init=${AC_CLIENT_DATA_INIT_MEMORY_LIMIT} innodb_buffer_pool=${AC_DATABASE_INNODB_BUFFER_POOL_SIZE}"
+    echo "运行限制: database=${AC_DATABASE_MEMORY_LIMIT} worldserver=${AC_WORLDSERVER_MEMORY_LIMIT} authserver=${AC_AUTHSERVER_MEMORY_LIMIT} client-data-init=${AC_CLIENT_DATA_INIT_MEMORY_LIMIT} innodb_buffer_pool=${AC_DATABASE_INNODB_BUFFER_POOL_SIZE} playerbot_accounts=${AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT}"
 }
 
 write_managed_env_values() {
@@ -217,6 +237,7 @@ AC_WORLDSERVER_MEMORY_LIMIT=${AC_WORLDSERVER_MEMORY_LIMIT}
 AC_AUTHSERVER_MEMORY_LIMIT=${AC_AUTHSERVER_MEMORY_LIMIT}
 AC_CLIENT_DATA_INIT_MEMORY_LIMIT=${AC_CLIENT_DATA_INIT_MEMORY_LIMIT}
 AC_DATABASE_INNODB_BUFFER_POOL_SIZE=${AC_DATABASE_INNODB_BUFFER_POOL_SIZE}
+AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT=${AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT}
 AC_RUNTIME_DOCKERFILE=${BUILD_RUNTIME_DOCKERFILE:-}
 # END ACORE AUTO MEMORY
 EOF
