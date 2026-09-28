@@ -79,6 +79,8 @@ configure_playerbots_memory() {
             if (!max_set) print "AiPlayerbot.MaxRandomBots = " bot_count
         }
     ' "$playerbots_conf" > "$tmp_file"
+    chown --reference="$playerbots_conf" "$tmp_file"
+    chmod --reference="$playerbots_conf" "$tmp_file"
     mv "$tmp_file" "$playerbots_conf"
     echo "Playerbots 内存档位: MinRandomBots=${bot_count} MaxRandomBots=${bot_count} ($playerbots_conf)"
 }
