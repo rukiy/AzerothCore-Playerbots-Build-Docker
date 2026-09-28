@@ -71,7 +71,7 @@ playerbot_accounts_for_memory() {
     elif [ "$total_mb" -lt 6144 ]; then
         echo 25
     elif [ "$total_mb" -lt 8192 ]; then
-        echo 25
+        echo 10
     elif [ "$total_mb" -lt 12288 ]; then
         echo 100
     else
@@ -87,7 +87,7 @@ playerbot_bots_for_memory() {
     elif [ "$total_mb" -lt 6144 ]; then
         echo 125
     elif [ "$total_mb" -lt 8192 ]; then
-        echo 125
+        echo 50
     elif [ "$total_mb" -lt 12288 ]; then
         echo 500
     else
@@ -170,11 +170,11 @@ prepare_memory_plan() {
     # client-data-init is a one-shot service; it does not consume the
     # persistent runtime budget after initialization. Give the saved budget
     # to worldserver, which is the main memory consumer with Playerbots.
-    database_mb=$((runtime_budget_mb * 25 / 100))
+    database_mb=$((runtime_budget_mb * 28 / 100))
     auth_mb=$((runtime_budget_mb * 3 / 100))
     client_init_mb=$((runtime_budget_mb * 12 / 100))
 
-    database_mb="$(memory_clamp "$database_mb" 768 4096)"
+    database_mb="$(memory_clamp "$database_mb" 1280 4096)"
     auth_mb="$(memory_clamp "$auth_mb" 128 256)"
     client_init_mb="$(memory_clamp "$client_init_mb" 512 2048)"
 
