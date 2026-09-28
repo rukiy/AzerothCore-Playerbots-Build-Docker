@@ -92,6 +92,7 @@ function toggle() {
         echo "检测到有容器未运行，正在启动所有容器..."
         prepare_memory_plan
         print_memory_plan
+        configure_playerbots_memory
         write_managed_env_values "$SRC_DIR/.env"
         local compose_file_args=()
         mapfile -t compose_file_args < <(compose_args)

@@ -38,6 +38,8 @@ function configure_modules() {
         fi
     done < <(find "$BUILD_ACORE_MOD_DIR" -name "*.conf.dist")
 
+    configure_playerbots_memory
+
     # 替换 ale脚本目录
     local mod_ale_conf="$WOTLK_ETC_MODULES_DIR/mod_ale.conf"
     if [ -f "$mod_ale_conf" ]; then
@@ -46,6 +48,39 @@ function configure_modules() {
 
     patch_autobalance_compatibility
     configure_playerbots_names
+}
+
+configure_playerbots_memory() {
+    local playerbots_conf="$WOTLK_ETC_MODULES_DIR/playerbots.conf"
+    local bot_count="$(playerbot_bots_for_memory "$AC_MEMORY_TOTAL_MB")"
+    local tmp_file
+
+    if [ ! -f "$playerbots_conf" ]; then
+        echo "错误: Playerbots 配置文件不存在: $playerbots_conf" >&2
+        return 1
+    fi
+
+    tmp_file="$(mktemp)"
+    awk -v bot_count="$bot_count" '
+        BEGIN { min_set = 0; max_set = 0 }
+        /^[[:space:]]*AiPlayerbot\.MinRandomBots[[:space:]]*=/ {
+            print "AiPlayerbot.MinRandomBots = " bot_count
+            min_set = 1
+            next
+        }
+        /^[[:space:]]*AiPlayerbot\.MaxRandomBots[[:space:]]*=/ {
+            print "AiPlayerbot.MaxRandomBots = " bot_count
+            max_set = 1
+            next
+        }
+        { print }
+        END {
+            if (!min_set) print "AiPlayerbot.MinRandomBots = " bot_count
+            if (!max_set) print "AiPlayerbot.MaxRandomBots = " bot_count
+        }
+    ' "$playerbots_conf" > "$tmp_file"
+    mv "$tmp_file" "$playerbots_conf"
+    echo "Playerbots 内存档位: MinRandomBots=${bot_count} MaxRandomBots=${bot_count} ($playerbots_conf)"
 }
 
 configure_playerbots_names() {
