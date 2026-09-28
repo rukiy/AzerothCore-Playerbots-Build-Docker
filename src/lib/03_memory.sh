@@ -123,26 +123,26 @@ prepare_memory_plan() {
     runtime_budget_mb=$((total_mb - runtime_reserved_mb))
     runtime_budget_mb="$(memory_clamp "$runtime_budget_mb" 1024 "$((total_mb - 512))")"
 
-    database_mb=$((runtime_budget_mb * 30 / 100))
-    world_mb=$((runtime_budget_mb * 60 / 100))
+    # client-data-init is a one-shot service; it does not consume the
+    # persistent runtime budget after initialization. Give the saved budget
+    # to worldserver, which is the main memory consumer with Playerbots.
+    database_mb=$((runtime_budget_mb * 25 / 100))
     auth_mb=$((runtime_budget_mb * 8 / 100))
     client_init_mb=$((runtime_budget_mb * 12 / 100))
 
     database_mb="$(memory_clamp "$database_mb" 768 4096)"
-    world_mb="$(memory_clamp "$world_mb" 1024 8192)"
     auth_mb="$(memory_clamp "$auth_mb" 256 1024)"
     client_init_mb="$(memory_clamp "$client_init_mb" 512 2048)"
 
     database_mb="$(memory_round_down "$database_mb" 128)"
-    world_mb="$(memory_round_down "$world_mb" 128)"
     auth_mb="$(memory_round_down "$auth_mb" 128)"
     client_init_mb="$(memory_round_down "$client_init_mb" 128)"
 
-    runtime_used_mb=$((database_mb + world_mb + auth_mb + client_init_mb))
-    if [ "$runtime_used_mb" -gt "$runtime_budget_mb" ]; then
-        world_mb=$((world_mb - (runtime_used_mb - runtime_budget_mb)))
-        world_mb="$(memory_max "$world_mb" 1024)"
-    fi
+    # Keep persistent services within the runtime budget. The client-data
+    # container has already exited before worldserver is started.
+    world_mb=$((runtime_budget_mb - database_mb - auth_mb))
+    world_mb="$(memory_clamp "$world_mb" 1024 8192)"
+    world_mb="$(memory_round_down "$world_mb" 128)"
 
     if [ "$total_mb" -lt 4096 ]; then
         max_jobs=1
