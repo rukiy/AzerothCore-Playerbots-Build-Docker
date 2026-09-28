@@ -223,8 +223,10 @@ prepare_memory_plan() {
 
 print_memory_plan() {
     prepare_memory_plan
+    local playerbot_bots
+    playerbot_bots="$(playerbot_bots_for_memory "$AC_MEMORY_TOTAL_MB")"
     echo "内存规划: 总内存=${AC_MEMORY_TOTAL_MB}MB 当前已用=${AC_MEMORY_USED_MB:-未知}MB 构建保留=${AC_BUILD_RESERVED_MB:-手动}MB 构建=${DOCKER_BUILD_MEMORY_LIMIT} 构建并行=${DOCKER_BUILD_PARALLEL_JOBS} 运行预算=${AC_RUNTIME_MEMORY_BUDGET_MB:-自动}MB"
-    echo "运行限制: database=${AC_DATABASE_MEMORY_LIMIT} worldserver=${AC_WORLDSERVER_MEMORY_LIMIT} authserver=${AC_AUTHSERVER_MEMORY_LIMIT} client-data-init=${AC_CLIENT_DATA_INIT_MEMORY_LIMIT} innodb_buffer_pool=${AC_DATABASE_INNODB_BUFFER_POOL_SIZE} playerbot_accounts=${AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT} playerbots=${playerbot_bots_for_memory "$AC_MEMORY_TOTAL_MB"}"
+    echo "运行限制: database=${AC_DATABASE_MEMORY_LIMIT} worldserver=${AC_WORLDSERVER_MEMORY_LIMIT} authserver=${AC_AUTHSERVER_MEMORY_LIMIT} client-data-init=${AC_CLIENT_DATA_INIT_MEMORY_LIMIT} innodb_buffer_pool=${AC_DATABASE_INNODB_BUFFER_POOL_SIZE} playerbot_accounts=${AC_AI_PLAYERBOT_RANDOM_BOT_ACCOUNT_COUNT} playerbots=${playerbot_bots}"
 }
 
 write_managed_env_values() {
