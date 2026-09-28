@@ -77,7 +77,7 @@ prepare_memory_plan() {
         return 0
     fi
 
-    local total_mb used_mb cpu_count reserved_mb dynamic_reserved_mb reserved_extra_mb build_reserved_mb build_limit_mb build_memory_per_job_mb
+    local total_mb used_mb cpu_count reserved_mb dynamic_reserved_mb reserved_extra_mb build_reserved_mb build_limit_mb build_memory_per_job_mb build_memory_overhead_mb
     local runtime_reserved_mb runtime_budget_mb database_mb world_mb auth_mb client_init_mb runtime_used_mb
     local build_jobs max_jobs
 
@@ -146,12 +146,11 @@ prepare_memory_plan() {
 
     if [ "$total_mb" -lt 4096 ]; then
         max_jobs=1
-    elif [ -n "${DOCKER_BUILD_MEMORY_PER_JOB_MB:-}" ]; then
-        build_memory_per_job_mb="$DOCKER_BUILD_MEMORY_PER_JOB_MB"
-        max_jobs=$((build_limit_mb / build_memory_per_job_mb))
-        max_jobs="$(memory_clamp "$max_jobs" 1 "$cpu_count")"
     else
-        max_jobs="$cpu_count"
+        build_memory_per_job_mb="${DOCKER_BUILD_MEMORY_PER_JOB_MB:-1024}"
+        build_memory_overhead_mb=512
+        max_jobs=$(( (build_limit_mb - build_memory_overhead_mb) / build_memory_per_job_mb ))
+        max_jobs="$(memory_clamp "$max_jobs" 1 "$cpu_count")"
     fi
     build_jobs="$max_jobs"
 
